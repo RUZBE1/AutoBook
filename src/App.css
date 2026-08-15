@@ -43,116 +43,17 @@
   margin-bottom: 2rem;
 }
 
-.login-page {
+.loading-page {
   display: grid;
   min-height: 100vh;
   place-items: center;
-  padding: 2rem 1rem;
-  background:
-    radial-gradient(circle at top, rgba(217, 233, 223, 0.75), transparent 42%),
-    #f6f7f4;
+  padding: 1rem;
 }
 
-.login-card {
-  width: min(100%, 440px);
-  padding: clamp(2rem, 6vw, 2.75rem);
-  border: 1px solid #dfe4dd;
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 20px 60px rgba(34, 57, 45, 0.1);
-}
-
-.login-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 2.25rem;
-}
-
-.login-brand-mark {
-  width: 40px;
-  height: 40px;
-}
-
-.login-heading-block h1 {
-  font-size: clamp(1.75rem, 6vw, 2.25rem);
-}
-
-.login-heading-block p {
-  margin: 0.75rem 0 0;
+.loading-page p {
+  margin: 0;
   color: #647068;
-  line-height: 1.55;
-}
-
-.login-form {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 2rem;
-}
-
-.login-form label {
-  font-size: 0.875rem;
   font-weight: 650;
-}
-
-.login-form input {
-  width: 100%;
-  min-height: 46px;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid #cbd5ce;
-  border-radius: 10px;
-  color: #17231d;
-  background: #fff;
-}
-
-.login-form input::placeholder {
-  color: #929a95;
-}
-
-.login-form input:focus {
-  border-color: #397357;
-  outline: 3px solid rgba(41, 94, 70, 0.15);
-}
-
-.login-form button {
-  min-height: 46px;
-  margin-top: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #295e46;
-  border-radius: 10px;
-  color: #fff;
-  background: #295e46;
-  font-weight: 650;
-  cursor: pointer;
-  transition:
-    background-color 150ms ease,
-    transform 150ms ease;
-}
-
-.login-form button:hover:not(:disabled) {
-  background: #1f4a37;
-  transform: translateY(-1px);
-}
-
-.login-form button:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.25);
-  outline-offset: 2px;
-}
-
-.login-form button:disabled,
-.login-form input:disabled {
-  cursor: wait;
-  opacity: 0.7;
-}
-
-.auth-error {
-  margin: 0.25rem 0 0;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid #e0b4b4;
-  border-radius: 10px;
-  color: #872f2f;
-  background: #fff2f2;
-  font-size: 0.875rem;
 }
 
 .eyebrow {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import {
   beginSignIn,
@@ -18,99 +18,52 @@ const days = [
 ]
 
 function App() {
-  const [isSignedIn, setIsSignedIn] = useState(hasStoredTokens)
-  const [isProcessingSignIn, setIsProcessingSignIn] = useState(false)
+  const [isSignedIn, setIsSignedIn] = useState(
+    () =>
+      hasStoredTokens() &&
+      !new URLSearchParams(window.location.search).has('code'),
+  )
   const [authError, setAuthError] = useState<string | null>(null)
-  const [email, setEmail] = useState('')
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
     const code = searchParams.get('code')
 
-    if (!code) {
+    if (code) {
+      void exchangeAuthorizationCode(code, searchParams.get('state'))
+        .then(() => {
+          setIsSignedIn(true)
+          removeOAuthParameters()
+        })
+        .catch((error: unknown) => {
+          setAuthError(
+            error instanceof Error
+              ? error.message
+              : 'Sign-in could not be completed.',
+          )
+        })
+
       return
     }
 
-    setIsProcessingSignIn(true)
+    if (hasStoredTokens()) {
+      return
+    }
 
-    void exchangeAuthorizationCode(code, searchParams.get('state'))
-      .then(() => {
-        setIsSignedIn(true)
-        removeOAuthParameters()
-      })
+    void beginSignIn()
       .catch((error: unknown) => {
         setAuthError(
-          error instanceof Error ? error.message : 'Sign-in could not be completed.',
+          error instanceof Error ? error.message : 'Sign-in could not be started.',
         )
-      })
-      .finally(() => {
-        setIsProcessingSignIn(false)
       })
   }, [])
 
-  const handleSignIn = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setAuthError(null)
-
-    const normalizedEmail = email.trim()
-
-    if (!normalizedEmail) {
-      setAuthError('Enter your email address to continue.')
-      return
-    }
-
-    setIsProcessingSignIn(true)
-
-    try {
-      await beginSignIn(normalizedEmail)
-    } catch (error) {
-      setAuthError(
-        error instanceof Error ? error.message : 'Sign-in could not be started.',
-      )
-      setIsProcessingSignIn(false)
-    }
-  }
-
   if (!isSignedIn) {
     return (
-      <main className="login-page">
-        <section className="login-card" aria-labelledby="login-heading">
-          <div className="login-brand">
-            <span className="brand-mark login-brand-mark" aria-hidden="true">
-              A
-            </span>
-            <span className="brand-name">AutoBook</span>
-          </div>
-
-          <div className="login-heading-block">
-            <h1 id="login-heading">Sign in to AutoBook</h1>
-            <p>Enter your email to continue to your weekly schedule.</p>
-          </div>
-
-          <form className="login-form" onSubmit={handleSignIn}>
-            <label htmlFor="email">Email address</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              value={email}
-              disabled={isProcessingSignIn}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-
-            {authError && (
-              <p className="auth-error" role="alert">
-                {authError}
-              </p>
-            )}
-
-            <button type="submit" disabled={isProcessingSignIn}>
-              {isProcessingSignIn ? 'Signing you in…' : 'Continue with email'}
-            </button>
-          </form>
-        </section>
+      <main className="loading-page">
+        <p role={authError ? 'alert' : 'status'}>
+          {authError ?? 'Loading AutoBook...'}
+        </p>
       </main>
     )
   }

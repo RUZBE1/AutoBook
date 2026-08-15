@@ -15,6 +15,7 @@ export interface CognitoTokens {
 }
 
 let callbackExchange: Promise<CognitoTokens> | undefined
+let authorizationRequest: Promise<void> | undefined
 
 function requireConfiguration() {
   if (!clientId || !domain || !redirectUri) {
@@ -49,7 +50,12 @@ async function createCodeChallenge(verifier: string) {
   return base64UrlEncode(new Uint8Array(digest))
 }
 
-export async function beginSignIn(email: string) {
+export function beginSignIn() {
+  authorizationRequest ??= performBeginSignIn()
+  return authorizationRequest
+}
+
+async function performBeginSignIn() {
   requireConfiguration()
 
   const verifier = randomBase64Url(64)
@@ -68,7 +74,6 @@ export async function beginSignIn(email: string) {
     code_challenge: challenge,
     code_challenge_method: 'S256',
     state,
-    login_hint: email,
   }).toString()
 
   window.location.assign(authorizeUrl)

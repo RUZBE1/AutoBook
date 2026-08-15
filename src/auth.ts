@@ -134,3 +134,23 @@ export function removeOAuthParameters() {
   url.searchParams.delete('state')
   window.history.replaceState({}, document.title, url)
 }
+
+export function signOut() {
+  for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+    const key = sessionStorage.key(index)
+
+    if (key?.startsWith('autobook.')) {
+      sessionStorage.removeItem(key)
+    }
+  }
+
+  requireConfiguration()
+
+  const logoutUrl = new URL(`${domain}/logout`)
+  logoutUrl.search = new URLSearchParams({
+    client_id: clientId,
+    logout_uri: redirectUri,
+  }).toString()
+
+  window.location.assign(logoutUrl)
+}

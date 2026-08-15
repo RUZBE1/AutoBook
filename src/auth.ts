@@ -49,7 +49,7 @@ async function createCodeChallenge(verifier: string) {
   return base64UrlEncode(new Uint8Array(digest))
 }
 
-export async function beginSignIn() {
+export async function beginSignIn(email: string) {
   requireConfiguration()
 
   const verifier = randomBase64Url(64)
@@ -68,6 +68,7 @@ export async function beginSignIn() {
     code_challenge: challenge,
     code_challenge_method: 'S256',
     state,
+    login_hint: email,
   }).toString()
 
   window.location.assign(authorizeUrl)

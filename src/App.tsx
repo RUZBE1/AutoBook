@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 import {
   beginSignIn,
@@ -21,6 +21,7 @@ function App() {
   const [isSignedIn, setIsSignedIn] = useState(hasStoredTokens)
   const [isProcessingSignIn, setIsProcessingSignIn] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
@@ -47,18 +48,71 @@ function App() {
       })
   }, [])
 
-  const handleSignIn = async () => {
+  const handleSignIn = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setAuthError(null)
+
+    const normalizedEmail = email.trim()
+
+    if (!normalizedEmail) {
+      setAuthError('Enter your email address to continue.')
+      return
+    }
+
     setIsProcessingSignIn(true)
 
     try {
-      await beginSignIn()
+      await beginSignIn(normalizedEmail)
     } catch (error) {
       setAuthError(
         error instanceof Error ? error.message : 'Sign-in could not be started.',
       )
       setIsProcessingSignIn(false)
     }
+  }
+
+  if (!isSignedIn) {
+    return (
+      <main className="login-page">
+        <section className="login-card" aria-labelledby="login-heading">
+          <div className="login-brand">
+            <span className="brand-mark login-brand-mark" aria-hidden="true">
+              A
+            </span>
+            <span className="brand-name">AutoBook</span>
+          </div>
+
+          <div className="login-heading-block">
+            <h1 id="login-heading">Sign in to AutoBook</h1>
+            <p>Enter your email to continue to your weekly schedule.</p>
+          </div>
+
+          <form className="login-form" onSubmit={handleSignIn}>
+            <label htmlFor="email">Email address</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              disabled={isProcessingSignIn}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+
+            {authError && (
+              <p className="auth-error" role="alert">
+                {authError}
+              </p>
+            )}
+
+            <button type="submit" disabled={isProcessingSignIn}>
+              {isProcessingSignIn ? 'Signing you in…' : 'Continue with email'}
+            </button>
+          </form>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -69,29 +123,10 @@ function App() {
             A
           </span>
           <span className="brand-name">AutoBook</span>
-          <div className="auth-control">
-            {isSignedIn ? (
-              <span className="signed-in-status">Signed in</span>
-            ) : (
-              <button
-                className="sign-in-button"
-                type="button"
-                disabled={isProcessingSignIn}
-                onClick={handleSignIn}
-              >
-                {isProcessingSignIn ? 'Signing in…' : 'Sign in'}
-              </button>
-            )}
-          </div>
         </div>
       </header>
 
       <main className="main-content">
-        {authError && (
-          <p className="auth-error" role="alert">
-            {authError}
-          </p>
-        )}
         <div className="title-block">
           <p className="eyebrow">Weekly schedule</p>
           <h1>Your Week</h1>

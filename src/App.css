@@ -33,10 +33,66 @@
   letter-spacing: -0.02em;
 }
 
+.auth-control {
+  margin-left: auto;
+}
+
+.sign-in-button,
+.signed-in-status {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.sign-in-button {
+  border: 1px solid #295e46;
+  color: #fff;
+  background: #295e46;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.sign-in-button:hover:not(:disabled) {
+  background: #1f4a37;
+  transform: translateY(-1px);
+}
+
+.sign-in-button:focus-visible {
+  outline: 3px solid rgba(41, 94, 70, 0.25);
+  outline-offset: 2px;
+}
+
+.sign-in-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.signed-in-status {
+  color: #295e46;
+  background: #e7f1eb;
+}
+
 .main-content {
   width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 4rem 0;
+}
+
+.auth-error {
+  margin: 0 0 1.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e0b4b4;
+  border-radius: 10px;
+  color: #872f2f;
+  background: #fff2f2;
+  font-size: 0.9rem;
 }
 
 .title-block {

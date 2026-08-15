@@ -277,6 +277,12 @@ h1 {
   letter-spacing: -0.025em;
 }
 
+.dialog-date {
+  margin: 0.45rem 0 0;
+  color: #647068;
+  font-size: 0.95rem;
+}
+
 .dialog-close {
   display: grid;
   flex: 0 0 auto;
@@ -298,51 +304,99 @@ h1 {
 }
 
 .dialog-close:focus-visible,
-.class-option:focus-visible {
+.classes-table tbody tr:focus-visible,
+.classes-status button:focus-visible {
   outline: 3px solid rgba(41, 94, 70, 0.25);
   outline-offset: 2px;
 }
 
-.class-options {
-  display: grid;
-  gap: 0.75rem;
+.classes-content {
   margin-top: 1.75rem;
 }
 
-.class-option {
-  display: grid;
-  grid-template-columns: 4.5rem 1fr 1.5rem;
-  gap: 0.75rem;
-  align-items: center;
-  width: 100%;
-  padding: 1rem;
-  border: 1px solid #dfe4dd;
+.classes-status {
+  margin: 0;
+  padding: 1.25rem;
   border-radius: 12px;
-  color: #26332c;
-  background: #fafbfa;
-  text-align: left;
+  color: #647068;
+  background: #f7f9f7;
+  text-align: center;
+}
+
+.classes-status.error {
+  color: #872f2f;
+}
+
+.classes-status.error p {
+  margin: 0;
+}
+
+.classes-status button {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5ce;
+  border-radius: 9px;
+  color: #295e46;
+  background: #fff;
+  font-weight: 650;
   cursor: pointer;
 }
 
-.class-option:hover {
-  border-color: #9ab5a6;
+.classes-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #dfe4dd;
+  border-radius: 12px;
+}
+
+.classes-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.classes-table th,
+.classes-table td {
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid #e5e9e5;
+}
+
+.classes-table th {
+  color: #647068;
+  background: #f7f9f7;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.classes-table tbody tr {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  cursor: pointer;
+}
+
+.classes-table tbody tr:hover {
   background: #f4f8f5;
 }
 
-.class-option.selected {
-  border-color: #397357;
+.classes-table tbody tr.selected {
+  outline-color: #5b8d72;
   background: #eaf3ed;
 }
 
-.class-time {
-  color: #397357;
-  font-weight: 700;
+.classes-table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
-.selection-indicator {
+.classes-table td:first-child {
+  min-width: 10rem;
+  font-weight: 650;
+}
+
+.row-selection {
+  display: inline-block;
+  width: 1.25rem;
   color: #295e46;
   font-weight: 800;
-  text-align: center;
 }
 
 @media (max-width: 600px) {
@@ -363,8 +417,9 @@ h1 {
     font-size: 0.85rem;
   }
 
-  .class-option {
-    grid-template-columns: 3.75rem 1fr 1.25rem;
-    padding: 0.85rem;
+  .classes-table th,
+  .classes-table td {
+    padding: 0.75rem 0.7rem;
+    font-size: 0.875rem;
   }
 }

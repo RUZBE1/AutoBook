@@ -1,6 +1,20 @@
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react'
 import './App.css'
-import { saveLeisureCentreCredentials, SettingsApiError } from './api'
+import {
+  ClassesApiError,
+  getClasses,
+  saveLeisureCentreCredentials,
+  SettingsApiError,
+  type LeisureClass,
+} from './api'
 import {
   beginSignIn,
   exchangeAuthorizationCode,
@@ -19,39 +33,125 @@ const days = [
   'Sunday',
 ]
 
-const availableClasses = [
-  { id: 'spin-0700', time: '07:00', name: 'Spin' },
-  { id: 'yoga-0930', time: '09:30', name: 'Yoga' },
-  { id: 'body-pump-1800', time: '18:00', name: 'Body Pump' },
-  { id: 'pilates-1930', time: '19:30', name: 'Pilates' },
-]
-
 type AppView = 'schedule' | 'settings'
 type SettingsMessage = { text: string; tone: 'success' | 'error' }
+type SelectedDay = { day: string; date: string; fullDate: string }
+
+function getNextWeekday(day: string): SelectedDay {
+  const targetDay = days.indexOf(day) + 1
+  const today = new Date()
+  let daysUntilTarget = (targetDay - today.getDay() + 7) % 7
+
+  if (daysUntilTarget === 0) {
+    daysUntilTarget = 7
+  }
+
+  const targetDate = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() + daysUntilTarget,
+  )
+  const date = [
+    targetDate.getFullYear(),
+    String(targetDate.getMonth() + 1).padStart(2, '0'),
+    String(targetDate.getDate()).padStart(2, '0'),
+  ].join('-')
+  const fullDate = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(targetDate)
+
+  return { day, date, fullDate }
+}
 
 interface AddClassModalProps {
-  day: string
+  selectedDay: SelectedDay
   onClose: () => void
 }
 
-function AddClassModal({ day, onClose }: AddClassModalProps) {
+function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [selectedClass, setSelectedClass] = useState<string | null>(null)
+  const requestControllerRef = useRef<AbortController | null>(null)
+  const [classes, setClasses] = useState<LeisureClass[]>([])
+  const [selectedClasses, setSelectedClasses] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [isLoading, setIsLoading] = useState(true)
+  const [classesError, setClassesError] = useState<string | null>(null)
+
+  const loadClasses = useCallback(() => {
+    requestControllerRef.current?.abort()
+    const controller = new AbortController()
+    requestControllerRef.current = controller
+
+    setIsLoading(true)
+    setClassesError(null)
+
+    void getClasses(selectedDay.date, controller.signal)
+      .then((classItems) => {
+        setClasses(classItems)
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return
+        }
+
+        setClassesError(
+          error instanceof ClassesApiError
+            ? error.message
+            : 'Unable to get classes.',
+        )
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setIsLoading(false)
+        }
+      })
+  }, [selectedDay.date])
 
   useEffect(() => {
     const dialog = dialogRef.current
     dialog?.showModal()
+    loadClasses()
 
     return () => {
+      requestControllerRef.current?.abort()
+
       if (dialog?.open) {
         dialog.close()
       }
     }
-  }, [])
+  }, [loadClasses])
 
   const handleBackdropClick = (event: MouseEvent<HTMLDialogElement>) => {
     if (event.target === event.currentTarget) {
       onClose()
+    }
+  }
+
+  const toggleClass = (activityInstanceId: string) => {
+    setSelectedClasses((currentSelection) => {
+      const nextSelection = new Set(currentSelection)
+
+      if (nextSelection.has(activityInstanceId)) {
+        nextSelection.delete(activityInstanceId)
+      } else {
+        nextSelection.add(activityInstanceId)
+      }
+
+      return nextSelection
+    })
+  }
+
+  const handleClassKeyDown = (
+    event: KeyboardEvent<HTMLTableRowElement>,
+    activityInstanceId: string,
+  ) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      toggleClass(activityInstanceId)
     }
   }
 
@@ -70,7 +170,8 @@ function AddClassModal({ day, onClose }: AddClassModalProps) {
         <div className="dialog-header">
           <div>
             <p className="eyebrow">Available classes</p>
-            <h2 id="class-dialog-title">Add class for {day}</h2>
+            <h2 id="class-dialog-title">Add class for {selectedDay.day}</h2>
+            <p className="dialog-date">{selectedDay.fullDate}</p>
           </div>
           <button
             className="dialog-close"
@@ -83,27 +184,69 @@ function AddClassModal({ day, onClose }: AddClassModalProps) {
           </button>
         </div>
 
-        <div className="class-options" role="list" aria-label={`Classes for ${day}`}>
-          {availableClasses.map((classOption) => {
-            const isSelected = selectedClass === classOption.id
+        <div className="classes-content" aria-live="polite">
+          {isLoading && <p className="classes-status">Getting classes...</p>}
 
-            return (
-              <button
-                className={`class-option${isSelected ? ' selected' : ''}`}
-                type="button"
-                role="listitem"
-                aria-pressed={isSelected}
-                key={classOption.id}
-                onClick={() => setSelectedClass(classOption.id)}
-              >
-                <span className="class-time">{classOption.time}</span>
-                <span>{classOption.name}</span>
-                <span className="selection-indicator" aria-hidden="true">
-                  {isSelected ? '✓' : ''}
-                </span>
+          {!isLoading && classesError && (
+            <div className="classes-status error" role="alert">
+              <p>{classesError}</p>
+              <button type="button" onClick={loadClasses}>
+                Try again
               </button>
-            )
-          })}
+            </div>
+          )}
+
+          {!isLoading && !classesError && classes.length === 0 && (
+            <p className="classes-status">No classes available.</p>
+          )}
+
+          {!isLoading && !classesError && classes.length > 0 && (
+            <div className="classes-table-wrap">
+              <table className="classes-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Class</th>
+                    <th scope="col">Time</th>
+                    <th scope="col">Session</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {classes.map((classItem) => {
+                    const isSelected = selectedClasses.has(
+                      classItem.activityInstanceId,
+                    )
+
+                    return (
+                      <tr
+                        className={isSelected ? 'selected' : undefined}
+                        aria-selected={isSelected}
+                        tabIndex={0}
+                        key={classItem.activityInstanceId}
+                        onClick={() =>
+                          toggleClass(classItem.activityInstanceId)
+                        }
+                        onKeyDown={(event) =>
+                          handleClassKeyDown(
+                            event,
+                            classItem.activityInstanceId,
+                          )
+                        }
+                      >
+                        <td>
+                          <span className="row-selection" aria-hidden="true">
+                            {isSelected ? '✓' : ''}
+                          </span>
+                          {classItem.className}
+                        </td>
+                        <td>{classItem.time}</td>
+                        <td>{classItem.session}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </dialog>
@@ -124,7 +267,7 @@ function App() {
     null,
   )
   const [isSavingCredentials, setIsSavingCredentials] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null)
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
@@ -234,7 +377,10 @@ function App() {
               <article className="day-card" key={day}>
                 <h2>{day}</h2>
                 <p>No classes selected</p>
-                <button type="button" onClick={() => setSelectedDay(day)}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDay(getNextWeekday(day))}
+                >
                   Add class
                 </button>
               </article>
@@ -299,7 +445,10 @@ function App() {
       )}
 
       {selectedDay && (
-        <AddClassModal day={selectedDay} onClose={() => setSelectedDay(null)} />
+        <AddClassModal
+          selectedDay={selectedDay}
+          onClose={() => setSelectedDay(null)}
+        />
       )}
     </div>
   )

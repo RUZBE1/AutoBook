@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react'
 import './App.css'
+import { saveLeisureCentreCredentials, SettingsApiError } from './api'
 import {
   beginSignIn,
   exchangeAuthorizationCode,
@@ -26,6 +27,7 @@ const availableClasses = [
 ]
 
 type AppView = 'schedule' | 'settings'
+type SettingsMessage = { text: string; tone: 'success' | 'error' }
 
 interface AddClassModalProps {
   day: string
@@ -118,7 +120,10 @@ function App() {
   const [view, setView] = useState<AppView>('schedule')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [settingsMessage, setSettingsMessage] = useState<string | null>(null)
+  const [settingsMessage, setSettingsMessage] = useState<SettingsMessage | null>(
+    null,
+  )
+  const [isSavingCredentials, setIsSavingCredentials] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   useEffect(() => {
@@ -154,10 +159,37 @@ function App() {
       })
   }, [])
 
-  const handleSaveCredentials = (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveCredentials = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSettingsMessage('Backend connection not configured yet')
-    setPassword('')
+    setSettingsMessage(null)
+
+    const normalizedUsername = username.trim()
+
+    if (!normalizedUsername || !password.trim()) {
+      setSettingsMessage({
+        text: 'Enter both a username and password.',
+        tone: 'error',
+      })
+      return
+    }
+
+    setIsSavingCredentials(true)
+
+    try {
+      await saveLeisureCentreCredentials(normalizedUsername, password)
+      setSettingsMessage({ text: 'Credentials saved', tone: 'success' })
+    } catch (error) {
+      setSettingsMessage({
+        text:
+          error instanceof SettingsApiError
+            ? error.message
+            : 'Unable to save credentials',
+        tone: 'error',
+      })
+    } finally {
+      setPassword('')
+      setIsSavingCredentials(false)
+    }
   }
 
   if (!isSignedIn) {
@@ -235,6 +267,7 @@ function App() {
                 type="text"
                 autoComplete="username"
                 value={username}
+                disabled={isSavingCredentials}
                 onChange={(event) => setUsername(event.target.value)}
               />
 
@@ -244,14 +277,20 @@ function App() {
                 type="password"
                 autoComplete="current-password"
                 value={password}
+                disabled={isSavingCredentials}
                 onChange={(event) => setPassword(event.target.value)}
               />
 
-              <button type="submit">Save credentials</button>
+              <button type="submit" disabled={isSavingCredentials}>
+                {isSavingCredentials ? 'Saving...' : 'Save credentials'}
+              </button>
 
               {settingsMessage && (
-                <p className="settings-message" role="status">
-                  {settingsMessage}
+                <p
+                  className={`settings-message ${settingsMessage.tone}`}
+                  role={settingsMessage.tone === 'error' ? 'alert' : 'status'}
+                >
+                  {settingsMessage.text}
                 </p>
               )}
             </form>

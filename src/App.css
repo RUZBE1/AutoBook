@@ -218,6 +218,12 @@ h1 {
   background: #1f4a37;
 }
 
+.settings-form button:disabled,
+.settings-form input:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .settings-form button:focus-visible {
   outline: 3px solid rgba(41, 94, 70, 0.25);
   outline-offset: 2px;
@@ -227,6 +233,14 @@ h1 {
   margin: 0.5rem 0 0;
   color: #647068;
   font-size: 0.9rem;
+}
+
+.settings-message.success {
+  color: #295e46;
+}
+
+.settings-message.error {
+  color: #872f2f;
 }
 
 .class-dialog {

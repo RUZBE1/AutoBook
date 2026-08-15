@@ -128,6 +128,21 @@ export function hasStoredTokens() {
   return sessionStorage.getItem(TOKENS_KEY) !== null
 }
 
+export function getStoredAccessToken() {
+  const storedTokens = sessionStorage.getItem(TOKENS_KEY)
+
+  if (!storedTokens) {
+    return null
+  }
+
+  try {
+    const tokens = JSON.parse(storedTokens) as Partial<CognitoTokens>
+    return typeof tokens.access_token === 'string' ? tokens.access_token : null
+  } catch {
+    return null
+  }
+}
+
 export function removeOAuthParameters() {
   const url = new URL(window.location.href)
   url.searchParams.delete('code')

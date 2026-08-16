@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type DragEvent,
   type FormEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -71,6 +72,153 @@ function formatOrdinal(value: number) {
     default:
       return `${value}th`
   }
+}
+
+function moveClass(
+  classes: ScheduleClass[],
+  fromIndex: number,
+  toIndex: number,
+) {
+  const reordered = [...classes]
+  const [movedClass] = reordered.splice(fromIndex, 1)
+  reordered.splice(toIndex, 0, movedClass)
+  return reordered
+}
+
+interface ScheduleClassListProps {
+  day: string
+  classes: ScheduleClass[]
+  disabled: boolean
+  onReorder: (day: string, classes: ScheduleClass[]) => void
+  onRemove: (day: string, classItem: ScheduleClass) => void
+}
+
+function ScheduleClassList({
+  day,
+  classes,
+  disabled,
+  onReorder,
+  onRemove,
+}: ScheduleClassListProps) {
+  const [draggedKey, setDraggedKey] = useState<string | null>(null)
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
+
+  const reorder = (fromIndex: number, toIndex: number) => {
+    if (disabled || fromIndex === toIndex || toIndex < 0 || toIndex >= classes.length) {
+      return
+    }
+
+    onReorder(day, moveClass(classes, fromIndex, toIndex))
+  }
+
+  const handleDragStart = (
+    event: DragEvent<HTMLLIElement>,
+    classKey: string,
+  ) => {
+    if (disabled) {
+      event.preventDefault()
+      return
+    }
+
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', classKey)
+    setDraggedKey(classKey)
+  }
+
+  const handleDrop = (
+    event: DragEvent<HTMLLIElement>,
+    targetKey: string,
+  ) => {
+    event.preventDefault()
+
+    if (!draggedKey || draggedKey === targetKey) {
+      setDropTargetKey(null)
+      return
+    }
+
+    const fromIndex = classes.findIndex(
+      (classItem) => getScheduleClassIdentity(classItem) === draggedKey,
+    )
+    const toIndex = classes.findIndex(
+      (classItem) => getScheduleClassIdentity(classItem) === targetKey,
+    )
+
+    reorder(fromIndex, toIndex)
+    setDraggedKey(null)
+    setDropTargetKey(null)
+  }
+
+  return (
+    <ul className="schedule-class-list" aria-label={`${day} classes`}>
+      {classes.map((classItem, index) => {
+        const classKey = getScheduleClassIdentity(classItem)
+        const ordinalSession = formatOrdinal(classItem.session)
+
+        return (
+          <li
+            className={`schedule-class-row${draggedKey === classKey ? ' dragging' : ''}${dropTargetKey === classKey ? ' drop-target' : ''}`}
+            draggable={!disabled}
+            key={classKey}
+            onDragStart={(event) => handleDragStart(event, classKey)}
+            onDragEnter={() => {
+              if (draggedKey && draggedKey !== classKey) {
+                setDropTargetKey(classKey)
+              }
+            }}
+            onDragOver={(event) => {
+              if (draggedKey) {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+              }
+            }}
+            onDrop={(event) => handleDrop(event, classKey)}
+            onDragEnd={() => {
+              setDraggedKey(null)
+              setDropTargetKey(null)
+            }}
+          >
+            <button
+              className="drag-handle"
+              type="button"
+              disabled={disabled}
+              aria-label={`Reorder ${classItem.className} ${ordinalSession} session. Use Arrow Up or Arrow Down.`}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  reorder(index, index - 1)
+                } else if (event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  reorder(index, index + 1)
+                }
+              }}
+            >
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <circle cx="6" cy="5" r="1.4" />
+                <circle cx="14" cy="5" r="1.4" />
+                <circle cx="6" cy="10" r="1.4" />
+                <circle cx="14" cy="10" r="1.4" />
+                <circle cx="6" cy="15" r="1.4" />
+                <circle cx="14" cy="15" r="1.4" />
+              </svg>
+            </button>
+            <span className="schedule-class-name">{classItem.className}</span>
+            <span>{ordinalSession}</span>
+            <button
+              className="remove-class-button"
+              type="button"
+              disabled={disabled}
+              aria-label={`Remove ${classItem.className} ${ordinalSession} session`}
+              onClick={() => onRemove(day, classItem)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
+              </svg>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 function getNextWeekday(day: string): SelectedDay {
@@ -464,17 +612,34 @@ function App() {
       throw new ScheduleApiError('Unable to save schedule.')
     }
 
-    const classesByKey = new Map<string, ScheduleClass>()
+    const selectedClassKeys = new Set(
+      selectedClasses.map((classItem) =>
+        getScheduleClassIdentity({
+          className: classItem.name,
+          session: classItem.session,
+        }),
+      ),
+    )
+    const candidateClasses = weeklySchedule[day].filter((classItem) =>
+      selectedClassKeys.has(getScheduleClassIdentity(classItem)),
+    )
+    const existingClassKeys = new Set(
+      candidateClasses.map(getScheduleClassIdentity),
+    )
 
     for (const classItem of selectedClasses) {
       const scheduleClass = {
         className: classItem.name,
         session: classItem.session,
       }
-      classesByKey.set(getScheduleClassIdentity(scheduleClass), scheduleClass)
+      const classKey = getScheduleClassIdentity(scheduleClass)
+
+      if (!existingClassKeys.has(classKey)) {
+        candidateClasses.push(scheduleClass)
+        existingClassKeys.add(classKey)
+      }
     }
 
-    const candidateClasses = Array.from(classesByKey.values())
     setSavingDays((current) => new Set(current).add(day))
 
     try {
@@ -512,6 +677,47 @@ function App() {
         [savedDay.day]: savedDay.classes,
       }))
     } catch (error) {
+      setScheduleError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+    } finally {
+      setSavingDays((current) => {
+        const next = new Set(current)
+        next.delete(day)
+        return next
+      })
+    }
+  }
+
+  const handleReorderClasses = async (
+    day: string,
+    reorderedClasses: ScheduleClass[],
+  ) => {
+    if (savingDays.has(day)) {
+      return
+    }
+
+    const previousClasses = weeklySchedule[day]
+    setWeeklySchedule((current) => ({
+      ...current,
+      [day]: reorderedClasses,
+    }))
+    setSavingDays((current) => new Set(current).add(day))
+    setScheduleError(null)
+
+    try {
+      const savedDay = await saveScheduleDay(day, reorderedClasses)
+      setWeeklySchedule((current) => ({
+        ...current,
+        [savedDay.day]: savedDay.classes,
+      }))
+    } catch (error) {
+      setWeeklySchedule((current) => ({
+        ...current,
+        [day]: previousClasses,
+      }))
       setScheduleError(
         error instanceof ScheduleApiError
           ? error.message
@@ -581,37 +787,13 @@ function App() {
                     {weeklySchedule[day].length === 0 ? (
                       <p>No classes selected</p>
                     ) : (
-                      <ul
-                        className="schedule-class-list"
-                        aria-label={`${day} classes`}
-                      >
-                        {weeklySchedule[day].map((classItem) => (
-                          <li
-                            className="schedule-class-row"
-                            key={getScheduleClassIdentity(classItem)}
-                          >
-                            <span className="schedule-class-name">
-                              {classItem.className}
-                            </span>
-                            <span>{formatOrdinal(classItem.session)}</span>
-                            <button
-                              className="remove-class-button"
-                              type="button"
-                              disabled={savingDays.has(day)}
-                              aria-label={`Remove ${classItem.className} ${formatOrdinal(classItem.session)} session`}
-                              onClick={() => handleRemoveClass(day, classItem)}
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                                focusable="false"
-                              >
-                                <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
-                              </svg>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+                      <ScheduleClassList
+                        day={day}
+                        classes={weeklySchedule[day]}
+                        disabled={savingDays.has(day)}
+                        onReorder={handleReorderClasses}
+                        onRemove={handleRemoveClass}
+                      />
                     )}
                     {savingDays.has(day) && (
                       <span className="day-saving-status" role="status">

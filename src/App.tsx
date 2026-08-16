@@ -37,6 +37,29 @@ type AppView = 'schedule' | 'settings'
 type SettingsMessage = { text: string; tone: 'success' | 'error' }
 type SelectedDay = { day: string; date: string; fullDate: string }
 
+function getClassIdentity(classItem: LeisureClass) {
+  return JSON.stringify([classItem.name, classItem.time, classItem.session])
+}
+
+function formatOrdinal(value: number) {
+  const remainder100 = Math.abs(value) % 100
+
+  if (remainder100 >= 11 && remainder100 <= 13) {
+    return `${value}th`
+  }
+
+  switch (Math.abs(value) % 10) {
+    case 1:
+      return `${value}st`
+    case 2:
+      return `${value}nd`
+    case 3:
+      return `${value}rd`
+    default:
+      return `${value}th`
+  }
+}
+
 function getNextWeekday(day: string): SelectedDay {
   const targetDay = days.indexOf(day) + 1
   const today = new Date()
@@ -131,14 +154,14 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
     }
   }
 
-  const toggleClass = (activityInstanceId: string) => {
+  const toggleClass = (classIdentity: string) => {
     setSelectedClasses((currentSelection) => {
       const nextSelection = new Set(currentSelection)
 
-      if (nextSelection.has(activityInstanceId)) {
-        nextSelection.delete(activityInstanceId)
+      if (nextSelection.has(classIdentity)) {
+        nextSelection.delete(classIdentity)
       } else {
-        nextSelection.add(activityInstanceId)
+        nextSelection.add(classIdentity)
       }
 
       return nextSelection
@@ -147,11 +170,11 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
 
   const handleClassKeyDown = (
     event: KeyboardEvent<HTMLTableRowElement>,
-    activityInstanceId: string,
+    classIdentity: string,
   ) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      toggleClass(activityInstanceId)
+      toggleClass(classIdentity)
     }
   }
 
@@ -212,34 +235,28 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
                 </thead>
                 <tbody>
                   {classes.map((classItem) => {
-                    const isSelected = selectedClasses.has(
-                      classItem.activityInstanceId,
-                    )
+                    const classIdentity = getClassIdentity(classItem)
+                    const isSelected = selectedClasses.has(classIdentity)
 
                     return (
                       <tr
                         className={isSelected ? 'selected' : undefined}
                         aria-selected={isSelected}
                         tabIndex={0}
-                        key={classItem.activityInstanceId}
-                        onClick={() =>
-                          toggleClass(classItem.activityInstanceId)
-                        }
+                        key={classIdentity}
+                        onClick={() => toggleClass(classIdentity)}
                         onKeyDown={(event) =>
-                          handleClassKeyDown(
-                            event,
-                            classItem.activityInstanceId,
-                          )
+                          handleClassKeyDown(event, classIdentity)
                         }
                       >
                         <td>
                           <span className="row-selection" aria-hidden="true">
                             {isSelected ? '✓' : ''}
                           </span>
-                          {classItem.className}
+                          {classItem.name}
                         </td>
                         <td>{classItem.time}</td>
-                        <td>{classItem.session}</td>
+                        <td>{formatOrdinal(classItem.session)}</td>
                       </tr>
                     )
                   })}

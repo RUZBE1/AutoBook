@@ -9,26 +9,13 @@ export class SettingsApiError extends Error {}
 export class ClassesApiError extends Error {}
 
 export interface LeisureClass {
-  activityInstanceId: string
-  className: string
+  name: string
   time: string
-  session: string
+  session: number
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
-}
-
-function getString(record: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = record[key]
-
-    if (typeof value === 'string') {
-      return value
-    }
-  }
-
-  return null
 }
 
 function normalizeClass(value: unknown): LeisureClass | null {
@@ -36,20 +23,18 @@ function normalizeClass(value: unknown): LeisureClass | null {
     return null
   }
 
-  const rawId = value.id
-  const activityInstanceId =
-    typeof rawId === 'string' || typeof rawId === 'number'
-      ? String(rawId)
-      : null
-  const className = getString(value, ['name'])
-  const time = getString(value, ['time'])
-  const session = getString(value, ['session'])
+  const { name, time, session } = value
 
-  if (!activityInstanceId || !className || !time || !session) {
+  if (
+    typeof name !== 'string' ||
+    typeof time !== 'string' ||
+    typeof session !== 'number' ||
+    !Number.isFinite(session)
+  ) {
     return null
   }
 
-  return { activityInstanceId, className, time, session }
+  return { name, time, session }
 }
 
 async function getValidationMessage(response: Response) {

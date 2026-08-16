@@ -3,11 +3,24 @@ import {
   useEffect,
   useRef,
   useState,
-  type DragEvent,
   type FormEvent,
   type KeyboardEvent,
   type MouseEvent,
 } from 'react'
+import {
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 import {
   ClassesApiError,
@@ -93,6 +106,86 @@ interface ScheduleClassListProps {
   onRemove: (day: string, classItem: ScheduleClass) => void
 }
 
+interface SortableScheduleClassRowProps {
+  classItem: ScheduleClass
+  disabled: boolean
+  isDropTarget: boolean
+  onKeyboardReorder: (direction: -1 | 1) => void
+  onRemove: () => void
+}
+
+function SortableScheduleClassRow({
+  classItem,
+  disabled,
+  isDropTarget,
+  onKeyboardReorder,
+  onRemove,
+}: SortableScheduleClassRowProps) {
+  const classKey = getScheduleClassIdentity(classItem)
+  const ordinalSession = formatOrdinal(classItem.session)
+  const {
+    attributes,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: classKey, disabled })
+
+  return (
+    <li
+      ref={setNodeRef}
+      className={`schedule-class-row${isDragging ? ' dragging' : ''}${isDropTarget ? ' drop-target' : ''}`}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <button
+        ref={setActivatorNodeRef}
+        className="drag-handle"
+        type="button"
+        disabled={disabled}
+        {...attributes}
+        {...listeners}
+        aria-label={`Reorder ${classItem.className} ${ordinalSession} session. Use Arrow Up or Arrow Down.`}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            onKeyboardReorder(-1)
+          } else if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            onKeyboardReorder(1)
+          }
+        }}
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <circle cx="6" cy="5" r="1.4" />
+          <circle cx="14" cy="5" r="1.4" />
+          <circle cx="6" cy="10" r="1.4" />
+          <circle cx="14" cy="10" r="1.4" />
+          <circle cx="6" cy="15" r="1.4" />
+          <circle cx="14" cy="15" r="1.4" />
+        </svg>
+      </button>
+      <span className="schedule-class-name">{classItem.className}</span>
+      <span>{ordinalSession}</span>
+      <button
+        className="remove-class-button"
+        type="button"
+        disabled={disabled}
+        aria-label={`Remove ${classItem.className} ${ordinalSession} session`}
+        onClick={onRemove}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
+        </svg>
+      </button>
+    </li>
+  )
+}
+
 function ScheduleClassList({
   day,
   classes,
@@ -100,8 +193,12 @@ function ScheduleClassList({
   onReorder,
   onRemove,
 }: ScheduleClassListProps) {
-  const [draggedKey, setDraggedKey] = useState<string | null>(null)
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+  )
 
   const reorder = (fromIndex: number, toIndex: number) => {
     if (disabled || fromIndex === toIndex || toIndex < 0 || toIndex >= classes.length) {
@@ -111,113 +208,53 @@ function ScheduleClassList({
     onReorder(day, moveClass(classes, fromIndex, toIndex))
   }
 
-  const handleDragStart = (
-    event: DragEvent<HTMLLIElement>,
-    classKey: string,
-  ) => {
-    if (disabled) {
-      event.preventDefault()
-      return
-    }
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    setDropTargetKey(null)
 
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', classKey)
-    setDraggedKey(classKey)
-  }
-
-  const handleDrop = (
-    event: DragEvent<HTMLLIElement>,
-    targetKey: string,
-  ) => {
-    event.preventDefault()
-
-    if (!draggedKey || draggedKey === targetKey) {
-      setDropTargetKey(null)
+    if (!over || active.id === over.id) {
       return
     }
 
     const fromIndex = classes.findIndex(
-      (classItem) => getScheduleClassIdentity(classItem) === draggedKey,
+      (classItem) => getScheduleClassIdentity(classItem) === active.id,
     )
     const toIndex = classes.findIndex(
-      (classItem) => getScheduleClassIdentity(classItem) === targetKey,
+      (classItem) => getScheduleClassIdentity(classItem) === over.id,
     )
 
     reorder(fromIndex, toIndex)
-    setDraggedKey(null)
-    setDropTargetKey(null)
   }
 
   return (
-    <ul className="schedule-class-list" aria-label={`${day} classes`}>
-      {classes.map((classItem, index) => {
-        const classKey = getScheduleClassIdentity(classItem)
-        const ordinalSession = formatOrdinal(classItem.session)
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragOver={({ over }) => setDropTargetKey(over ? String(over.id) : null)}
+      onDragCancel={() => setDropTargetKey(null)}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={classes.map(getScheduleClassIdentity)}
+        strategy={verticalListSortingStrategy}
+      >
+        <ul className="schedule-class-list" aria-label={`${day} classes`}>
+          {classes.map((classItem, index) => {
+            const classKey = getScheduleClassIdentity(classItem)
 
-        return (
-          <li
-            className={`schedule-class-row${draggedKey === classKey ? ' dragging' : ''}${dropTargetKey === classKey ? ' drop-target' : ''}`}
-            draggable={!disabled}
-            key={classKey}
-            onDragStart={(event) => handleDragStart(event, classKey)}
-            onDragEnter={() => {
-              if (draggedKey && draggedKey !== classKey) {
-                setDropTargetKey(classKey)
-              }
-            }}
-            onDragOver={(event) => {
-              if (draggedKey) {
-                event.preventDefault()
-                event.dataTransfer.dropEffect = 'move'
-              }
-            }}
-            onDrop={(event) => handleDrop(event, classKey)}
-            onDragEnd={() => {
-              setDraggedKey(null)
-              setDropTargetKey(null)
-            }}
-          >
-            <button
-              className="drag-handle"
-              type="button"
-              disabled={disabled}
-              aria-label={`Reorder ${classItem.className} ${ordinalSession} session. Use Arrow Up or Arrow Down.`}
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowUp') {
-                  event.preventDefault()
-                  reorder(index, index - 1)
-                } else if (event.key === 'ArrowDown') {
-                  event.preventDefault()
-                  reorder(index, index + 1)
-                }
-              }}
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                <circle cx="6" cy="5" r="1.4" />
-                <circle cx="14" cy="5" r="1.4" />
-                <circle cx="6" cy="10" r="1.4" />
-                <circle cx="14" cy="10" r="1.4" />
-                <circle cx="6" cy="15" r="1.4" />
-                <circle cx="14" cy="15" r="1.4" />
-              </svg>
-            </button>
-            <span className="schedule-class-name">{classItem.className}</span>
-            <span>{ordinalSession}</span>
-            <button
-              className="remove-class-button"
-              type="button"
-              disabled={disabled}
-              aria-label={`Remove ${classItem.className} ${ordinalSession} session`}
-              onClick={() => onRemove(day, classItem)}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
-              </svg>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
+            return (
+              <SortableScheduleClassRow
+                key={classKey}
+                classItem={classItem}
+                disabled={disabled}
+                isDropTarget={dropTargetKey === classKey}
+                onKeyboardReorder={(direction) => reorder(index, index + direction)}
+                onRemove={() => onRemove(day, classItem)}
+              />
+            )
+          })}
+        </ul>
+      </SortableContext>
+    </DndContext>
   )
 }
 

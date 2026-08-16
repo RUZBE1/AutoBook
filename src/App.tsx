@@ -492,6 +492,183 @@ function AddClassModal({
   )
 }
 
+interface ManualClassModalProps {
+  day: string
+  savedClasses: ScheduleClass[]
+  onAddClass: (classItem: ScheduleClass) => Promise<void>
+  onClose: () => void
+}
+
+function ManualClassModal({
+  day,
+  savedClasses,
+  onAddClass,
+  onClose,
+}: ManualClassModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [className, setClassName] = useState('')
+  const [sessionInput, setSessionInput] = useState('')
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    dialog?.showModal()
+
+    return () => {
+      if (dialog?.open) {
+        dialog.close()
+      }
+    }
+  }, [])
+
+  const trimmedClassName = className.trim()
+  const sessionIsInteger = /^\d+$/.test(sessionInput.trim())
+  const session = sessionIsInteger ? Number(sessionInput) : null
+  const classNameError = trimmedClassName ? null : 'Class name is required.'
+  const sessionError = !sessionInput.trim()
+    ? 'Session number is required.'
+    : !sessionIsInteger
+      ? 'Session must be a whole integer.'
+      : session === null || session < 1 || session > 999
+        ? 'Session must be between 1 and 999.'
+        : null
+  const isDuplicate =
+    !classNameError &&
+    !sessionError &&
+    savedClasses.some(
+      (classItem) =>
+        classItem.className === trimmedClassName && classItem.session === session,
+    )
+  const duplicateError = isDuplicate
+    ? 'That class and session are already saved for this weekday.'
+    : null
+  const isValid = !classNameError && !sessionError && !duplicateError
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setHasSubmitted(true)
+    setSaveError(null)
+
+    if (!isValid || session === null) {
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      await onAddClass({ className: trimmedClassName, session })
+      onClose()
+    } catch (error) {
+      setSaveError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="class-dialog manual-class-dialog"
+      aria-labelledby="manual-class-dialog-title"
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <form className="dialog-card manual-class-form" onSubmit={handleSubmit}>
+        <div className="dialog-header">
+          <div>
+            <p className="eyebrow">{day}</p>
+            <h2 id="manual-class-dialog-title">Enter class name</h2>
+          </div>
+          <button
+            className="dialog-close"
+            type="button"
+            aria-label="Close manual class dialog"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="manual-class-fields">
+          <label htmlFor="manual-class-name">Class name</label>
+          <input
+            id="manual-class-name"
+            type="text"
+            value={className}
+            disabled={isSaving}
+            aria-invalid={hasSubmitted && Boolean(classNameError)}
+            aria-describedby={
+              hasSubmitted && classNameError ? 'manual-class-name-error' : undefined
+            }
+            autoFocus
+            onChange={(event) => setClassName(event.target.value)}
+          />
+          {hasSubmitted && classNameError && (
+            <p id="manual-class-name-error" className="field-error">
+              {classNameError}
+            </p>
+          )}
+
+          <label htmlFor="manual-class-session">Session number</label>
+          <input
+            id="manual-class-session"
+            type="number"
+            min="1"
+            max="999"
+            step="1"
+            inputMode="numeric"
+            value={sessionInput}
+            disabled={isSaving}
+            aria-invalid={hasSubmitted && Boolean(sessionError)}
+            aria-describedby={
+              hasSubmitted && sessionError ? 'manual-class-session-error' : undefined
+            }
+            onChange={(event) => setSessionInput(event.target.value)}
+          />
+          {hasSubmitted && sessionError && (
+            <p id="manual-class-session-error" className="field-error">
+              {sessionError}
+            </p>
+          )}
+
+          {hasSubmitted && duplicateError && (
+            <p className="field-error" role="alert">
+              {duplicateError}
+            </p>
+          )}
+          {saveError && (
+            <p className="dialog-save-error" role="alert">
+              {saveError}
+            </p>
+          )}
+        </div>
+
+        <div className="manual-class-actions">
+          <button type="button" disabled={isSaving} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Add class'}
+          </button>
+        </div>
+      </form>
+    </dialog>
+  )
+}
+
 function App() {
   const [isSignedIn, setIsSignedIn] = useState(
     () =>
@@ -507,6 +684,7 @@ function App() {
   )
   const [isSavingCredentials, setIsSavingCredentials] = useState(false)
   const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null)
+  const [manualEntryDay, setManualEntryDay] = useState<string | null>(null)
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(
     createEmptySchedule,
   )
@@ -732,6 +910,52 @@ function App() {
     }
   }
 
+  const handleAddManualClass = async (
+    day: string,
+    classItem: ScheduleClass,
+  ) => {
+    if (savingDays.has(day)) {
+      throw new ScheduleApiError('Unable to save schedule.')
+    }
+
+    const classKey = getScheduleClassIdentity(classItem)
+
+    if (
+      weeklySchedule[day].some(
+        (savedClass) => getScheduleClassIdentity(savedClass) === classKey,
+      )
+    ) {
+      throw new ScheduleApiError(
+        'That class and session are already saved for this weekday.',
+      )
+    }
+
+    const candidateClasses = [...weeklySchedule[day], classItem]
+    setSavingDays((current) => new Set(current).add(day))
+    setScheduleError(null)
+
+    try {
+      const savedDay = await saveScheduleDay(day, candidateClasses)
+      setWeeklySchedule((current) => ({
+        ...current,
+        [savedDay.day]: savedDay.classes,
+      }))
+    } catch (error) {
+      setScheduleError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+      throw error
+    } finally {
+      setSavingDays((current) => {
+        const next = new Set(current)
+        next.delete(day)
+        return next
+      })
+    }
+  }
+
   if (!isSignedIn) {
     return (
       <main className="loading-page">
@@ -800,6 +1024,15 @@ function App() {
                         Saving...
                       </span>
                     )}
+                    <button
+                      className="manual-class-action"
+                      type="button"
+                      disabled={savingDays.has(day)}
+                      onClick={() => setManualEntryDay(day)}
+                    >
+                      <span aria-hidden="true">+</span>
+                      Enter class name
+                    </button>
                     <button
                       className="add-class-button"
                       type="button"
@@ -879,6 +1112,17 @@ function App() {
             handleSaveClasses(selectedDay.day, classes)
           }
           onClose={() => setSelectedDay(null)}
+        />
+      )}
+
+      {manualEntryDay && (
+        <ManualClassModal
+          day={manualEntryDay}
+          savedClasses={weeklySchedule[manualEntryDay]}
+          onAddClass={(classItem) =>
+            handleAddManualClass(manualEntryDay, classItem)
+          }
+          onClose={() => setManualEntryDay(null)}
         />
       )}
     </div>

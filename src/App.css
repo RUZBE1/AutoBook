@@ -665,6 +665,30 @@ h1 {
   border-color: #b85a5a;
 }
 
+.manual-class-suggestion {
+  min-height: 40px;
+  margin-top: -0.45rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #d9e2dc;
+  border-radius: 8px;
+  color: #295e46;
+  background: #f5f8f6;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.manual-class-suggestion:hover:not(:disabled) {
+  border-color: #aebfb4;
+  background: #eaf3ed;
+}
+
+.manual-class-suggestion:focus-visible {
+  outline: 3px solid rgba(41, 94, 70, 0.2);
+  outline-offset: 1px;
+}
+
 .field-error {
   margin: -0.25rem 0 0;
   color: #872f2f;
@@ -705,7 +729,8 @@ h1 {
 }
 
 .manual-class-actions button:disabled,
-.manual-class-fields input:disabled {
+.manual-class-fields input:disabled,
+.manual-class-suggestion:disabled {
   cursor: wait;
   opacity: 0.6;
 }

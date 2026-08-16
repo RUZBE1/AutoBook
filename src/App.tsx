@@ -53,6 +53,8 @@ const days = [
   'Sunday',
 ]
 
+const MANUAL_CLASS_SUGGESTION = 'Zumba®'
+
 type AppView = 'schedule' | 'settings'
 type SettingsMessage = { text: string; tone: 'success' | 'error' }
 type SelectedDay = { day: string; date: string; fullDate: string }
@@ -572,6 +574,12 @@ function ManualClassModal({
   }, [])
 
   const trimmedClassName = className.trim()
+  const normalizedClassName = trimmedClassName.toLocaleLowerCase('en-GB')
+  const normalizedSuggestion = MANUAL_CLASS_SUGGESTION.toLocaleLowerCase('en-GB')
+  const showClassSuggestion =
+    normalizedClassName.length > 0 &&
+    normalizedSuggestion.startsWith(normalizedClassName) &&
+    normalizedClassName !== normalizedSuggestion
   const sessionIsInteger = /^\d+$/.test(sessionInput.trim())
   const session = sessionIsInteger ? Number(sessionInput) : null
   const classNameError = trimmedClassName ? null : 'Class name is required.'
@@ -661,9 +669,25 @@ function ManualClassModal({
             aria-describedby={
               hasSubmitted && classNameError ? 'manual-class-name-error' : undefined
             }
+            aria-autocomplete="list"
+            aria-controls={
+              showClassSuggestion ? 'manual-class-name-suggestions' : undefined
+            }
+            aria-expanded={showClassSuggestion}
             autoFocus
             onChange={(event) => setClassName(event.target.value)}
           />
+          {showClassSuggestion && (
+            <button
+              id="manual-class-name-suggestions"
+              className="manual-class-suggestion"
+              type="button"
+              disabled={isSaving}
+              onClick={() => setClassName(MANUAL_CLASS_SUGGESTION)}
+            >
+              {MANUAL_CLASS_SUGGESTION}
+            </button>
+          )}
           {hasSubmitted && classNameError && (
             <p id="manual-class-name-error" className="field-error">
               {classNameError}

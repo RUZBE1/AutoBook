@@ -1,4 +1,4 @@
-import { getStoredAccessToken } from './auth'
+import { getStoredAccessToken, recoverFromExpiredSession } from './auth'
 
 const LEISURE_CENTRE_SETTINGS_URL =
   'https://iojgrjmve9.execute-api.eu-west-2.amazonaws.com/settings/leisure-centre'
@@ -20,6 +20,29 @@ const scheduleDays = [
 export class SettingsApiError extends Error {}
 export class ClassesApiError extends Error {}
 export class ScheduleApiError extends Error {}
+
+class AuthenticationExpiredError extends Error {}
+
+async function authenticatedFetch(input: RequestInfo | URL, init?: RequestInit) {
+  const accessToken = getStoredAccessToken()
+
+  if (!accessToken) {
+    recoverFromExpiredSession()
+    throw new AuthenticationExpiredError()
+  }
+
+  const headers = new Headers(init?.headers)
+  headers.set('Authorization', `Bearer ${accessToken}`)
+
+  const response = await fetch(input, { ...init, headers })
+
+  if (response.status === 401) {
+    recoverFromExpiredSession()
+    throw new AuthenticationExpiredError()
+  }
+
+  return response
+}
 
 export interface LeisureClass {
   name: string
@@ -110,24 +133,21 @@ export async function saveLeisureCentreCredentials(
   username: string,
   password: string,
 ) {
-  const accessToken = getStoredAccessToken()
-
-  if (!accessToken) {
-    throw new SettingsApiError('Your session has expired. Please sign in again.')
-  }
-
   let response: Response
 
   try {
-    response = await fetch(LEISURE_CENTRE_SETTINGS_URL, {
+    response = await authenticatedFetch(LEISURE_CENTRE_SETTINGS_URL, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ username, password }),
     })
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthenticationExpiredError) {
+      throw new SettingsApiError('Your session has expired. Please sign in again.')
+    }
+
     throw new SettingsApiError('Unable to save credentials')
   }
 
@@ -139,43 +159,30 @@ export async function saveLeisureCentreCredentials(
     throw new SettingsApiError(await getValidationMessage(response))
   }
 
-  if (response.status === 401) {
-    throw new SettingsApiError('Your session has expired. Please sign in again.')
-  }
-
   throw new SettingsApiError('Unable to save credentials')
 }
 
 export async function getClasses(date: string, signal?: AbortSignal) {
-  const accessToken = getStoredAccessToken()
-
-  if (!accessToken) {
-    throw new ClassesApiError('Your session has expired. Please sign in again.')
-  }
-
   const url = new URL(CLASSES_URL)
   url.searchParams.set('date', date)
 
   let response: Response
 
   try {
-    response = await fetch(url, {
+    response = await authenticatedFetch(url, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
       signal,
     })
   } catch (error) {
+    if (error instanceof AuthenticationExpiredError) {
+      throw new ClassesApiError('Your session has expired. Please sign in again.')
+    }
+
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error
     }
 
     throw new ClassesApiError('Unable to get classes.')
-  }
-
-  if (response.status === 401) {
-    throw new ClassesApiError('Your session has expired. Please sign in again.')
   }
 
   if (!response.ok) {
@@ -203,27 +210,18 @@ export async function getClasses(date: string, signal?: AbortSignal) {
 }
 
 export async function getSchedule() {
-  const accessToken = getStoredAccessToken()
-
-  if (!accessToken) {
-    throw new ScheduleApiError('Your session has expired. Please sign in again.')
-  }
-
   let response: Response
 
   try {
-    response = await fetch(SCHEDULE_URL, {
+    response = await authenticatedFetch(SCHEDULE_URL, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
     })
-  } catch {
-    throw new ScheduleApiError('Unable to load schedule.')
-  }
+  } catch (error) {
+    if (error instanceof AuthenticationExpiredError) {
+      throw new ScheduleApiError('Your session has expired. Please sign in again.')
+    }
 
-  if (response.status === 401) {
-    throw new ScheduleApiError('Your session has expired. Please sign in again.')
+    throw new ScheduleApiError('Unable to load schedule.')
   }
 
   if (!response.ok) {
@@ -258,29 +256,22 @@ export async function getSchedule() {
 }
 
 export async function saveScheduleDay(day: string, classes: ScheduleClass[]) {
-  const accessToken = getStoredAccessToken()
-
-  if (!accessToken) {
-    throw new ScheduleApiError('Your session has expired. Please sign in again.')
-  }
-
   let response: Response
 
   try {
-    response = await fetch(SCHEDULE_URL, {
+    response = await authenticatedFetch(SCHEDULE_URL, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ day, classes }),
     })
-  } catch {
-    throw new ScheduleApiError('Unable to save schedule.')
-  }
+  } catch (error) {
+    if (error instanceof AuthenticationExpiredError) {
+      throw new ScheduleApiError('Your session has expired. Please sign in again.')
+    }
 
-  if (response.status === 401) {
-    throw new ScheduleApiError('Your session has expired. Please sign in again.')
+    throw new ScheduleApiError('Unable to save schedule.')
   }
 
   if (!response.ok) {

@@ -16,6 +16,9 @@ export interface CognitoTokens {
 
 let callbackExchange: Promise<CognitoTokens> | undefined
 let authorizationRequest: Promise<void> | undefined
+let expiredSessionRecoveryStarted = false
+
+const expiredSessionListeners = new Set<() => void>()
 
 function requireConfiguration() {
   if (!clientId || !domain || !redirectUri) {
@@ -150,7 +153,7 @@ export function removeOAuthParameters() {
   window.history.replaceState({}, document.title, url)
 }
 
-export function signOut() {
+export function clearStoredAuthentication() {
   for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
     const key = sessionStorage.key(index)
 
@@ -158,6 +161,34 @@ export function signOut() {
       sessionStorage.removeItem(key)
     }
   }
+}
+
+export function subscribeToExpiredSession(listener: () => void) {
+  expiredSessionListeners.add(listener)
+
+  return () => {
+    expiredSessionListeners.delete(listener)
+  }
+}
+
+export function recoverFromExpiredSession() {
+  if (
+    expiredSessionRecoveryStarted ||
+    new URLSearchParams(window.location.search).has('code')
+  ) {
+    return
+  }
+
+  expiredSessionRecoveryStarted = true
+  clearStoredAuthentication()
+  expiredSessionListeners.forEach((listener) => listener())
+  void beginSignIn().catch(() => {
+    expiredSessionRecoveryStarted = false
+  })
+}
+
+export function signOut() {
+  clearStoredAuthentication()
 
   requireConfiguration()
 

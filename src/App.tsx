@@ -41,6 +41,7 @@ import {
   hasStoredTokens,
   removeOAuthParameters,
   signOut,
+  subscribeToExpiredSession,
 } from './auth'
 
 const days = [
@@ -765,6 +766,15 @@ function App() {
   const [savingDays, setSavingDays] = useState<Set<string>>(() => new Set())
   const hasLoadedSchedule = useRef(false)
 
+  useEffect(
+    () =>
+      subscribeToExpiredSession(() => {
+        setAuthError(null)
+        setIsSignedIn(false)
+      }),
+    [],
+  )
+
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
     const code = searchParams.get('code')
@@ -1071,9 +1081,7 @@ function App() {
       {view === 'schedule' ? (
         <main className="main-content">
           <div className="title-block">
-            <p className="eyebrow">Weekly schedule</p>
-            <h1>Your Week</h1>
-            <p className="subtitle">Build a simple plan for the week ahead.</p>
+            <h1>Mom&apos;s Class Schedule</h1>
           </div>
 
           {isScheduleLoading ? (

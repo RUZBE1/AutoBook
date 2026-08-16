@@ -298,7 +298,10 @@ function getNextWeekday(day: string): SelectedDay {
 interface AddClassModalProps {
   selectedDay: SelectedDay
   savedClasses: ScheduleClass[]
-  onSaveClasses: (classes: LeisureClass[]) => Promise<void>
+  onSaveClasses: (
+    selectedClasses: LeisureClass[],
+    catalogueClasses: LeisureClass[],
+  ) => Promise<void>
   onClose: () => void
 }
 
@@ -417,7 +420,7 @@ function AddClassModal({
     setSaveError(null)
 
     try {
-      await onSaveClasses(selectedItems)
+      await onSaveClasses(selectedItems, classes)
       onClose()
     } catch (error) {
       setSaveError(
@@ -830,6 +833,7 @@ function App() {
   const handleSaveClasses = async (
     day: string,
     selectedClasses: LeisureClass[],
+    catalogueClasses: LeisureClass[],
   ) => {
     if (savingDays.has(day)) {
       throw new ScheduleApiError('Unable to save schedule.')
@@ -843,9 +847,19 @@ function App() {
         }),
       ),
     )
-    const candidateClasses = weeklySchedule[day].filter((classItem) =>
-      selectedClassKeys.has(getScheduleClassIdentity(classItem)),
+    const catalogueClassKeys = new Set(
+      catalogueClasses.map((classItem) =>
+        getScheduleClassIdentity({
+          className: classItem.name,
+          session: classItem.session,
+        }),
+      ),
     )
+    const candidateClasses = weeklySchedule[day].filter((classItem) => {
+      const classKey = getScheduleClassIdentity(classItem)
+
+      return !catalogueClassKeys.has(classKey) || selectedClassKeys.has(classKey)
+    })
     const existingClassKeys = new Set(
       candidateClasses.map(getScheduleClassIdentity),
     )
@@ -1153,8 +1167,12 @@ function App() {
         <AddClassModal
           selectedDay={selectedDay}
           savedClasses={weeklySchedule[selectedDay.day]}
-          onSaveClasses={(classes) =>
-            handleSaveClasses(selectedDay.day, classes)
+          onSaveClasses={(selectedClasses, catalogueClasses) =>
+            handleSaveClasses(
+              selectedDay.day,
+              selectedClasses,
+              catalogueClasses,
+            )
           }
           onClose={() => setSelectedDay(null)}
         />

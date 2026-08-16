@@ -10,7 +10,8 @@ import {
 import {
   closestCenter,
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -135,20 +136,22 @@ function SortableScheduleClassRow({
 
   return (
     <li
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node)
+        setActivatorNodeRef(node)
+      }}
       className={`schedule-class-row${isDragging ? ' dragging' : ''}${isDropTarget ? ' drop-target' : ''}`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
+      {...listeners}
     >
       <button
-        ref={setActivatorNodeRef}
         className="drag-handle"
         type="button"
         disabled={disabled}
         {...attributes}
-        {...listeners}
         aria-label={`Reorder ${classItem.className} ${ordinalSession} session. Use Arrow Up or Arrow Down.`}
         onKeyDown={(event) => {
           if (event.key === 'ArrowUp') {
@@ -176,6 +179,8 @@ function SortableScheduleClassRow({
         type="button"
         disabled={disabled}
         aria-label={`Remove ${classItem.className} ${ordinalSession} session`}
+        onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
         onClick={onRemove}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -195,7 +200,10 @@ function ScheduleClassList({
 }: ScheduleClassListProps) {
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
       activationConstraint: { distance: 5 },
     }),
   )

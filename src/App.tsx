@@ -105,14 +105,14 @@ function getNextWeekday(day: string): SelectedDay {
 interface AddClassModalProps {
   selectedDay: SelectedDay
   savedClasses: ScheduleClass[]
-  onAddSelected: (classes: LeisureClass[]) => Promise<void>
+  onSaveClasses: (classes: LeisureClass[]) => Promise<void>
   onClose: () => void
 }
 
 function AddClassModal({
   selectedDay,
   savedClasses,
-  onAddSelected,
+  onSaveClasses,
   onClose,
 }: AddClassModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -215,7 +215,7 @@ function AddClassModal({
     }
   }
 
-  const handleAddSelected = async () => {
+  const handleSaveClasses = async () => {
     const selectedItems = classes.filter((classItem) =>
       selectedClasses.has(getClassIdentity(classItem)),
     )
@@ -224,7 +224,7 @@ function AddClassModal({
     setSaveError(null)
 
     try {
-      await onAddSelected(selectedItems)
+      await onSaveClasses(selectedItems)
       onClose()
     } catch (error) {
       setSaveError(
@@ -333,10 +333,10 @@ function AddClassModal({
           )}
           <button
             type="button"
-            disabled={selectedClasses.size === 0 || isSaving}
-            onClick={handleAddSelected}
+            disabled={isLoading || classesError !== null || isSaving}
+            onClick={handleSaveClasses}
           >
-            {isSaving ? 'Saving...' : 'Add selected'}
+            {isSaving ? 'Saving...' : 'Save classes'}
           </button>
         </div>
       </div>
@@ -456,7 +456,7 @@ function App() {
     }
   }
 
-  const handleAddSelected = async (
+  const handleSaveClasses = async (
     day: string,
     selectedClasses: LeisureClass[],
   ) => {
@@ -464,12 +464,7 @@ function App() {
       throw new ScheduleApiError('Unable to save schedule.')
     }
 
-    const classesByKey = new Map(
-      weeklySchedule[day].map((classItem) => [
-        getScheduleClassIdentity(classItem),
-        classItem,
-      ]),
-    )
+    const classesByKey = new Map<string, ScheduleClass>()
 
     for (const classItem of selectedClasses) {
       const scheduleClass = {
@@ -698,8 +693,8 @@ function App() {
         <AddClassModal
           selectedDay={selectedDay}
           savedClasses={weeklySchedule[selectedDay.day]}
-          onAddSelected={(classes) =>
-            handleAddSelected(selectedDay.day, classes)
+          onSaveClasses={(classes) =>
+            handleSaveClasses(selectedDay.day, classes)
           }
           onClose={() => setSelectedDay(null)}
         />

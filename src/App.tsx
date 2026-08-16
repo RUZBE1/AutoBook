@@ -11,9 +11,14 @@ import './App.css'
 import {
   ClassesApiError,
   getClasses,
+  getSchedule,
   saveLeisureCentreCredentials,
+  saveScheduleDay,
+  ScheduleApiError,
   SettingsApiError,
   type LeisureClass,
+  type ScheduleClass,
+  type WeeklySchedule,
 } from './api'
 import {
   beginSignIn,
@@ -39,6 +44,14 @@ type SelectedDay = { day: string; date: string; fullDate: string }
 
 function getClassIdentity(classItem: LeisureClass) {
   return JSON.stringify([classItem.name, classItem.time, classItem.session])
+}
+
+function getScheduleClassIdentity(classItem: ScheduleClass) {
+  return JSON.stringify([classItem.className, classItem.session])
+}
+
+function createEmptySchedule(): WeeklySchedule {
+  return Object.fromEntries(days.map((day) => [day, []]))
 }
 
 function formatOrdinal(value: number) {
@@ -91,10 +104,17 @@ function getNextWeekday(day: string): SelectedDay {
 
 interface AddClassModalProps {
   selectedDay: SelectedDay
+  savedClasses: ScheduleClass[]
+  onAddSelected: (classes: LeisureClass[]) => Promise<void>
   onClose: () => void
 }
 
-function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
+function AddClassModal({
+  selectedDay,
+  savedClasses,
+  onAddSelected,
+  onClose,
+}: AddClassModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const requestControllerRef = useRef<AbortController | null>(null)
   const [classes, setClasses] = useState<LeisureClass[]>([])
@@ -103,6 +123,8 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
   )
   const [isLoading, setIsLoading] = useState(true)
   const [classesError, setClassesError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const loadClasses = useCallback(() => {
     requestControllerRef.current?.abort()
@@ -115,6 +137,21 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
     void getClasses(selectedDay.date, controller.signal)
       .then((classItems) => {
         setClasses(classItems)
+        const savedClassKeys = new Set(savedClasses.map(getScheduleClassIdentity))
+        setSelectedClasses(
+          new Set(
+            classItems
+              .filter((classItem) =>
+                savedClassKeys.has(
+                  getScheduleClassIdentity({
+                    className: classItem.name,
+                    session: classItem.session,
+                  }),
+                ),
+              )
+              .map(getClassIdentity),
+          ),
+        )
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -132,7 +169,7 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
           setIsLoading(false)
         }
       })
-  }, [selectedDay.date])
+  }, [savedClasses, selectedDay.date])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -175,6 +212,28 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       toggleClass(classIdentity)
+    }
+  }
+
+  const handleAddSelected = async () => {
+    const selectedItems = classes.filter((classItem) =>
+      selectedClasses.has(getClassIdentity(classItem)),
+    )
+
+    setIsSaving(true)
+    setSaveError(null)
+
+    try {
+      await onAddSelected(selectedItems)
+      onClose()
+    } catch (error) {
+      setSaveError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -265,6 +324,21 @@ function AddClassModal({ selectedDay, onClose }: AddClassModalProps) {
             </div>
           )}
         </div>
+
+        <div className="dialog-actions">
+          {saveError && (
+            <p className="dialog-save-error" role="alert">
+              {saveError}
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={selectedClasses.size === 0 || isSaving}
+            onClick={handleAddSelected}
+          >
+            {isSaving ? 'Saving...' : 'Add selected'}
+          </button>
+        </div>
       </div>
     </dialog>
   )
@@ -285,6 +359,13 @@ function App() {
   )
   const [isSavingCredentials, setIsSavingCredentials] = useState(false)
   const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null)
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(
+    createEmptySchedule,
+  )
+  const [isScheduleLoading, setIsScheduleLoading] = useState(true)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [savingDays, setSavingDays] = useState<Set<string>>(() => new Set())
+  const hasLoadedSchedule = useRef(false)
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
@@ -319,6 +400,29 @@ function App() {
       })
   }, [])
 
+  useEffect(() => {
+    if (!isSignedIn || hasLoadedSchedule.current) {
+      return
+    }
+
+    hasLoadedSchedule.current = true
+    setIsScheduleLoading(true)
+    setScheduleError(null)
+
+    void getSchedule()
+      .then(setWeeklySchedule)
+      .catch((error: unknown) => {
+        setScheduleError(
+          error instanceof ScheduleApiError
+            ? error.message
+            : 'Unable to load schedule.',
+        )
+      })
+      .finally(() => {
+        setIsScheduleLoading(false)
+      })
+  }, [isSignedIn])
+
   const handleSaveCredentials = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSettingsMessage(null)
@@ -349,6 +453,81 @@ function App() {
     } finally {
       setPassword('')
       setIsSavingCredentials(false)
+    }
+  }
+
+  const handleAddSelected = async (
+    day: string,
+    selectedClasses: LeisureClass[],
+  ) => {
+    if (savingDays.has(day)) {
+      throw new ScheduleApiError('Unable to save schedule.')
+    }
+
+    const classesByKey = new Map(
+      weeklySchedule[day].map((classItem) => [
+        getScheduleClassIdentity(classItem),
+        classItem,
+      ]),
+    )
+
+    for (const classItem of selectedClasses) {
+      const scheduleClass = {
+        className: classItem.name,
+        session: classItem.session,
+      }
+      classesByKey.set(getScheduleClassIdentity(scheduleClass), scheduleClass)
+    }
+
+    const candidateClasses = Array.from(classesByKey.values())
+    setSavingDays((current) => new Set(current).add(day))
+
+    try {
+      const savedDay = await saveScheduleDay(day, candidateClasses)
+      setWeeklySchedule((current) => ({
+        ...current,
+        [savedDay.day]: savedDay.classes,
+      }))
+    } finally {
+      setSavingDays((current) => {
+        const next = new Set(current)
+        next.delete(day)
+        return next
+      })
+    }
+  }
+
+  const handleRemoveClass = async (day: string, classToRemove: ScheduleClass) => {
+    if (savingDays.has(day)) {
+      return
+    }
+
+    const classKey = getScheduleClassIdentity(classToRemove)
+    const candidateClasses = weeklySchedule[day].filter(
+      (classItem) => getScheduleClassIdentity(classItem) !== classKey,
+    )
+
+    setSavingDays((current) => new Set(current).add(day))
+    setScheduleError(null)
+
+    try {
+      const savedDay = await saveScheduleDay(day, candidateClasses)
+      setWeeklySchedule((current) => ({
+        ...current,
+        [savedDay.day]: savedDay.classes,
+      }))
+    } catch (error) {
+      setScheduleError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+    } finally {
+      setSavingDays((current) => {
+        const next = new Set(current)
+        next.delete(day)
+        return next
+      })
     }
   }
 
@@ -389,20 +568,74 @@ function App() {
             <p className="subtitle">Build a simple plan for the week ahead.</p>
           </div>
 
-          <section className="week-grid" aria-label="Weekly class schedule">
-            {days.map((day) => (
-              <article className="day-card" key={day}>
-                <h2>{day}</h2>
-                <p>No classes selected</p>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDay(getNextWeekday(day))}
-                >
-                  Add class
-                </button>
-              </article>
-            ))}
-          </section>
+          {isScheduleLoading ? (
+            <p className="schedule-status" role="status">
+              Loading schedule...
+            </p>
+          ) : (
+            <>
+              {scheduleError && (
+                <p className="schedule-status error" role="alert">
+                  {scheduleError}
+                </p>
+              )}
+              <section className="week-grid" aria-label="Weekly class schedule">
+                {days.map((day) => (
+                  <article className="day-card" key={day}>
+                    <h2>{day}</h2>
+                    {weeklySchedule[day].length === 0 ? (
+                      <p>No classes selected</p>
+                    ) : (
+                      <ul
+                        className="schedule-class-list"
+                        aria-label={`${day} classes`}
+                      >
+                        {weeklySchedule[day].map((classItem) => (
+                          <li
+                            className="schedule-class-row"
+                            key={getScheduleClassIdentity(classItem)}
+                          >
+                            <span className="schedule-class-name">
+                              {classItem.className}
+                            </span>
+                            <span>{formatOrdinal(classItem.session)}</span>
+                            <button
+                              className="remove-class-button"
+                              type="button"
+                              disabled={savingDays.has(day)}
+                              aria-label={`Remove ${classItem.className} ${formatOrdinal(classItem.session)} session`}
+                              onClick={() => handleRemoveClass(day, classItem)}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                focusable="false"
+                              >
+                                <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
+                              </svg>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {savingDays.has(day) && (
+                      <span className="day-saving-status" role="status">
+                        Saving...
+                      </span>
+                    )}
+                    <button
+                      className="add-class-button"
+                      type="button"
+                      disabled={savingDays.has(day)}
+                      onClick={() => setSelectedDay(getNextWeekday(day))}
+                    >
+                      Add class
+                    </button>
+                  </article>
+                ))}
+              </section>
+            </>
+          )}
         </main>
       ) : (
         <main className="main-content settings-view">
@@ -464,6 +697,10 @@ function App() {
       {selectedDay && (
         <AddClassModal
           selectedDay={selectedDay}
+          savedClasses={weeklySchedule[selectedDay.day]}
+          onAddSelected={(classes) =>
+            handleAddSelected(selectedDay.day, classes)
+          }
           onClose={() => setSelectedDay(null)}
         />
       )}

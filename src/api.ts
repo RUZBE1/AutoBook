@@ -4,15 +4,35 @@ const LEISURE_CENTRE_SETTINGS_URL =
   'https://iojgrjmve9.execute-api.eu-west-2.amazonaws.com/settings/leisure-centre'
 const CLASSES_URL =
   'https://iojgrjmve9.execute-api.eu-west-2.amazonaws.com/classes'
+const SCHEDULE_URL =
+  'https://iojgrjmve9.execute-api.eu-west-2.amazonaws.com/schedule'
+
+const scheduleDays = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+]
 
 export class SettingsApiError extends Error {}
 export class ClassesApiError extends Error {}
+export class ScheduleApiError extends Error {}
 
 export interface LeisureClass {
   name: string
   time: string
   session: number
 }
+
+export interface ScheduleClass {
+  className: string
+  session: number
+}
+
+export type WeeklySchedule = Record<string, ScheduleClass[]>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -35,6 +55,35 @@ function normalizeClass(value: unknown): LeisureClass | null {
   }
 
   return { name, time, session }
+}
+
+function normalizeScheduleClass(value: unknown): ScheduleClass | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const { className, session } = value
+
+  if (
+    typeof className !== 'string' ||
+    typeof session !== 'number' ||
+    !Number.isFinite(session)
+  ) {
+    return null
+  }
+
+  return { className, session }
+}
+
+function parseScheduleClasses(value: unknown) {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const classes = value.map(normalizeScheduleClass)
+  return classes.every((classItem) => classItem !== null)
+    ? (classes as ScheduleClass[])
+    : null
 }
 
 async function getValidationMessage(response: Response) {
@@ -151,4 +200,110 @@ export async function getClasses(date: string, signal?: AbortSignal) {
     .sort((first, second) =>
       first.time.localeCompare(second.time, undefined, { numeric: true }),
     )
+}
+
+export async function getSchedule() {
+  const accessToken = getStoredAccessToken()
+
+  if (!accessToken) {
+    throw new ScheduleApiError('Your session has expired. Please sign in again.')
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(SCHEDULE_URL, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+  } catch {
+    throw new ScheduleApiError('Unable to load schedule.')
+  }
+
+  if (response.status === 401) {
+    throw new ScheduleApiError('Your session has expired. Please sign in again.')
+  }
+
+  if (!response.ok) {
+    throw new ScheduleApiError('Unable to load schedule.')
+  }
+
+  let body: unknown
+
+  try {
+    body = await response.json()
+  } catch {
+    throw new ScheduleApiError('Unable to load schedule.')
+  }
+
+  if (!isRecord(body) || !isRecord(body.schedule)) {
+    throw new ScheduleApiError('Unable to load schedule.')
+  }
+
+  const schedule: WeeklySchedule = {}
+
+  for (const day of scheduleDays) {
+    const classes = parseScheduleClasses(body.schedule[day])
+
+    if (!classes) {
+      throw new ScheduleApiError('Unable to load schedule.')
+    }
+
+    schedule[day] = classes
+  }
+
+  return schedule
+}
+
+export async function saveScheduleDay(day: string, classes: ScheduleClass[]) {
+  const accessToken = getStoredAccessToken()
+
+  if (!accessToken) {
+    throw new ScheduleApiError('Your session has expired. Please sign in again.')
+  }
+
+  let response: Response
+
+  try {
+    response = await fetch(SCHEDULE_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ day, classes }),
+    })
+  } catch {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  if (response.status === 401) {
+    throw new ScheduleApiError('Your session has expired. Please sign in again.')
+  }
+
+  if (!response.ok) {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  let body: unknown
+
+  try {
+    body = await response.json()
+  } catch {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  if (!isRecord(body) || typeof body.day !== 'string') {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  const savedClasses = parseScheduleClasses(body.classes)
+
+  if (!savedClasses) {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  return { day: body.day, classes: savedClasses }
 }

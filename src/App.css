@@ -41,13 +41,13 @@
 
 .header-nav button:hover,
 .back-button:hover {
-  color: #295e46;
-  background: #eef5f1;
+  color: #665276;
+  background: #f3f0f5;
 }
 
 .header-nav button:focus-visible,
 .back-button:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.2);
+  outline: 3px solid rgba(102, 82, 118, 0.2);
   outline-offset: 1px;
 }
 
@@ -76,7 +76,7 @@
 
 .eyebrow {
   margin: 0 0 0.5rem;
-  color: #397357;
+  color: #79658a;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -129,7 +129,7 @@ h1 {
   padding: 0.7rem 1rem;
   border: 1px solid #cbd5ce;
   border-radius: 10px;
-  color: #295e46;
+  color: #665276;
   background: #f8faf8;
   font-weight: 650;
   cursor: pointer;
@@ -140,13 +140,13 @@ h1 {
 }
 
 .add-class-button:hover:not(:disabled) {
-  border-color: #76a18b;
-  background: #eef5f1;
+  border-color: #a08eac;
+  background: #f3f0f5;
   transform: translateY(-1px);
 }
 
 .add-class-button:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.25);
+  outline: 3px solid rgba(102, 82, 118, 0.25);
   outline-offset: 2px;
 }
 
@@ -180,19 +180,19 @@ h1 {
   height: 20px;
   place-items: center;
   border-radius: 6px;
-  color: #295e46;
-  background: #eaf3ed;
+  color: #665276;
+  background: #f0ebf3;
   font-size: 1rem;
 }
 
 .manual-class-action:hover:not(:disabled) {
-  color: #295e46;
-  border-color: #8fac9c;
-  background: #f4f8f5;
+  color: #665276;
+  border-color: #ad9bb7;
+  background: #f7f4f8;
 }
 
 .manual-class-action:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.2);
+  outline: 3px solid rgba(102, 82, 118, 0.2);
   outline-offset: 1px;
 }
 
@@ -238,7 +238,7 @@ h1 {
 }
 
 .schedule-class-row:hover {
-  background: #f5f8f6;
+  background: #f8f6f9;
 }
 
 .schedule-class-row.dragging {
@@ -246,8 +246,8 @@ h1 {
 }
 
 .schedule-class-row.drop-target {
-  background: #eaf3ed;
-  box-shadow: inset 0 2px #5b8d72;
+  background: #f0ebf3;
+  box-shadow: inset 0 2px #8b759a;
 }
 
 .drag-handle {
@@ -258,7 +258,7 @@ h1 {
   padding: 0;
   border: 0;
   border-radius: 6px;
-  color: #9aa39e;
+  color: #a19aa5;
   background: transparent;
   cursor: grab;
   touch-action: none;
@@ -268,8 +268,8 @@ h1 {
 }
 
 .drag-handle:hover:not(:disabled) {
-  color: #52645a;
-  background: #e9efeb;
+  color: #665c6d;
+  background: #f0ebf2;
 }
 
 .drag-handle:active:not(:disabled) {
@@ -292,7 +292,7 @@ h1 {
 }
 
 .drag-handle:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.2);
+  outline: 3px solid rgba(102, 82, 118, 0.2);
   outline-offset: 1px;
 }
 
@@ -377,24 +377,24 @@ h1 {
 }
 
 .settings-form input:focus {
-  border-color: #397357;
-  outline: 3px solid rgba(41, 94, 70, 0.15);
+  border-color: #79658a;
+  outline: 3px solid rgba(102, 82, 118, 0.15);
 }
 
 .settings-form button {
   justify-self: start;
   margin-top: 0.75rem;
   padding: 0.75rem 1rem;
-  border: 1px solid #295e46;
+  border: 1px solid #665276;
   border-radius: 10px;
   color: #fff;
-  background: #295e46;
+  background: #665276;
   font-weight: 650;
   cursor: pointer;
 }
 
 .settings-form button:hover {
-  background: #1f4a37;
+  background: #51415f;
 }
 
 .settings-form button:disabled,
@@ -404,7 +404,7 @@ h1 {
 }
 
 .settings-form button:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.25);
+  outline: 3px solid rgba(102, 82, 118, 0.25);
   outline-offset: 2px;
 }
 
@@ -485,7 +485,7 @@ h1 {
 .dialog-close:focus-visible,
 .classes-table tbody tr:focus-visible,
 .classes-status button:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.25);
+  outline: 3px solid rgba(102, 82, 118, 0.25);
   outline-offset: 2px;
 }
 
@@ -515,7 +515,7 @@ h1 {
   padding: 0.5rem 0.75rem;
   border: 1px solid #cbd5ce;
   border-radius: 9px;
-  color: #295e46;
+  color: #665276;
   background: #fff;
   font-weight: 650;
   cursor: pointer;
@@ -554,12 +554,12 @@ h1 {
 }
 
 .classes-table tbody tr:hover {
-  background: #f4f8f5;
+  background: #f7f4f8;
 }
 
 .classes-table tbody tr.selected {
-  outline-color: #5b8d72;
-  background: #eaf3ed;
+  outline-color: #8b759a;
+  background: #f0ebf3;
 }
 
 .classes-table tbody tr:last-child td {
@@ -574,7 +574,7 @@ h1 {
 .row-selection {
   display: inline-block;
   width: 1.25rem;
-  color: #295e46;
+  color: #665276;
   font-weight: 800;
 }
 
@@ -591,16 +591,16 @@ h1 {
 .dialog-actions > button {
   margin-left: auto;
   padding: 0.7rem 1rem;
-  border: 1px solid #295e46;
+  border: 1px solid #665276;
   border-radius: 10px;
   color: #fff;
-  background: #295e46;
+  background: #665276;
   font-weight: 650;
   cursor: pointer;
 }
 
 .dialog-actions > button:hover:not(:disabled) {
-  background: #1f4a37;
+  background: #51415f;
 }
 
 .dialog-actions > button:disabled {
@@ -609,7 +609,7 @@ h1 {
 }
 
 .dialog-actions > button:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.25);
+  outline: 3px solid rgba(102, 82, 118, 0.25);
   outline-offset: 2px;
 }
 
@@ -645,8 +645,8 @@ h1 {
 }
 
 .manual-class-fields input:focus {
-  border-color: #397357;
-  outline: 3px solid rgba(41, 94, 70, 0.15);
+  border-color: #79658a;
+  outline: 3px solid rgba(102, 82, 118, 0.15);
 }
 
 .manual-class-fields input[aria-invalid="true"] {
@@ -659,8 +659,8 @@ h1 {
   padding: 0.55rem 0.8rem;
   border: 1px solid #d9e2dc;
   border-radius: 8px;
-  color: #295e46;
-  background: #f5f8f6;
+  color: #665276;
+  background: #f8f6f9;
   font: inherit;
   font-weight: 650;
   text-align: left;
@@ -669,11 +669,11 @@ h1 {
 
 .manual-class-suggestion:hover:not(:disabled) {
   border-color: #aebfb4;
-  background: #eaf3ed;
+  background: #f0ebf3;
 }
 
 .manual-class-suggestion:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.2);
+  outline: 3px solid rgba(102, 82, 118, 0.2);
   outline-offset: 1px;
 }
 
@@ -704,16 +704,16 @@ h1 {
 
 .manual-class-actions button[type="submit"] {
   color: #fff;
-  border-color: #295e46;
-  background: #295e46;
+  border-color: #665276;
+  background: #665276;
 }
 
 .manual-class-actions button:hover:not(:disabled) {
-  background: #eef5f1;
+  background: #f3f0f5;
 }
 
 .manual-class-actions button[type="submit"]:hover:not(:disabled) {
-  background: #1f4a37;
+  background: #51415f;
 }
 
 .manual-class-actions button:disabled,
@@ -724,7 +724,7 @@ h1 {
 }
 
 .manual-class-actions button:focus-visible {
-  outline: 3px solid rgba(41, 94, 70, 0.25);
+  outline: 3px solid rgba(102, 82, 118, 0.25);
   outline-offset: 2px;
 }
 

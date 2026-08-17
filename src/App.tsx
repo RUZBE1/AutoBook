@@ -139,22 +139,20 @@ function SortableScheduleClassRow({
 
   return (
     <li
-      ref={(node) => {
-        setNodeRef(node)
-        setActivatorNodeRef(node)
-      }}
+      ref={setNodeRef}
       className={`schedule-class-row${isDragging ? ' dragging' : ''}${isDropTarget ? ' drop-target' : ''}`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
-      {...listeners}
     >
       <button
+        ref={setActivatorNodeRef}
         className="drag-handle"
         type="button"
         disabled={disabled}
         {...attributes}
+        {...listeners}
         aria-label={`Reorder ${classItem.className} ${ordinalSession} session. Use Arrow Up or Arrow Down.`}
         onKeyDown={(event) => {
           if (event.key === 'ArrowUp') {

@@ -241,11 +241,7 @@ h1 {
   border-radius: 8px;
   color: #647068;
   font-size: 0.8rem;
-  cursor: grab;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
+  cursor: default;
   transition:
     background-color 120ms ease,
     opacity 120ms ease,
@@ -258,7 +254,6 @@ h1 {
 
 .schedule-class-row.dragging {
   opacity: 0.45;
-  cursor: grabbing;
 }
 
 .schedule-class-row.drop-target {
@@ -277,6 +272,10 @@ h1 {
   color: #9aa39e;
   background: transparent;
   cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .drag-handle:hover:not(:disabled) {

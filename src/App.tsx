@@ -1076,7 +1076,7 @@ function App() {
       {view === 'schedule' ? (
         <main className="main-content">
           <div className="title-block">
-            <h1>Mom&apos;s Class Schedule</h1>
+            <h1>Mum&apos;s Class Schedule</h1>
           </div>
 
           {isScheduleLoading ? (

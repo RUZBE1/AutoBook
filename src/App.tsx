@@ -1061,9 +1061,6 @@ function App() {
     <div className="app-shell">
       <header className="site-header">
         <div className="header-content">
-          <span className="brand-mark" aria-hidden="true">
-            A
-          </span>
           <span className="brand-name">AutoBook</span>
           <nav className="header-nav" aria-label="Account navigation">
             <button type="button" onClick={() => setView('settings')}>

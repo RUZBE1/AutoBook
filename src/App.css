@@ -3,7 +3,7 @@
 }
 
 .site-header {
-  border-bottom: 1px solid #dfe4dd;
+  border-bottom: 1px solid var(--color-border);
   background: rgba(255, 255, 255, 0.9);
 }
 
@@ -33,7 +33,7 @@
   padding: 0.55rem 0.75rem;
   border: 0;
   border-radius: 9px;
-  color: #435149;
+  color: var(--color-text-secondary);
   background: transparent;
   font-weight: 650;
   cursor: pointer;
@@ -41,13 +41,13 @@
 
 .header-nav button:hover,
 .back-button:hover {
-  color: #665276;
-  background: #f3f0f5;
+  color: var(--color-purple-600);
+  background: var(--color-purple-50);
 }
 
 .header-nav button:focus-visible,
 .back-button:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.2);
+  outline: 3px solid var(--color-focus-medium);
   outline-offset: 1px;
 }
 
@@ -70,13 +70,13 @@
 
 .loading-page p {
   margin: 0;
-  color: #647068;
+  color: var(--color-text-muted);
   font-weight: 650;
 }
 
 .eyebrow {
   margin: 0 0 0.5rem;
-  color: #79658a;
+  color: var(--color-purple-400);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -91,7 +91,7 @@ h1 {
 
 .subtitle {
   margin: 0.75rem 0 0;
-  color: #647068;
+  color: var(--color-text-muted);
 }
 
 .week-grid {
@@ -105,10 +105,10 @@ h1 {
   min-height: 210px;
   flex-direction: column;
   padding: 1.5rem;
-  border: 1px solid #dfe4dd;
+  border: 1px solid var(--color-purple-300);
   border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 8px 30px rgba(34, 57, 45, 0.05);
+  background: var(--color-surface);
+  box-shadow: 0 8px 30px var(--color-shadow);
 }
 
 .day-card h2 {
@@ -119,7 +119,7 @@ h1 {
 
 .day-card p {
   margin: 1rem 0;
-  color: #78827c;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
@@ -127,10 +127,10 @@ h1 {
   width: 100%;
   margin-top: 0.5rem;
   padding: 0.7rem 1rem;
-  border: 1px solid #cbd5ce;
+  border: 1px solid var(--color-purple-300);
   border-radius: 10px;
-  color: #665276;
-  background: #f8faf8;
+  color: var(--color-purple-600);
+  background: var(--color-surface-soft);
   font-weight: 650;
   cursor: pointer;
   transition:
@@ -140,13 +140,13 @@ h1 {
 }
 
 .add-class-button:hover:not(:disabled) {
-  border-color: #a08eac;
-  background: #f3f0f5;
+  border-color: var(--color-purple-300);
+  background: var(--color-purple-50);
   transform: translateY(-1px);
 }
 
 .add-class-button:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.25);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -164,10 +164,10 @@ h1 {
   gap: 0.55rem;
   margin-top: auto;
   padding: 0.55rem 0.65rem;
-  border: 1px dashed #cbd5ce;
+  border: 1px dashed var(--color-border-strong);
   border-radius: 8px;
-  color: #647068;
-  background: #fafbfa;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
   font-size: 0.8rem;
   font-weight: 650;
   text-align: left;
@@ -180,36 +180,36 @@ h1 {
   height: 20px;
   place-items: center;
   border-radius: 6px;
-  color: #665276;
-  background: #f0ebf3;
+  color: var(--color-purple-600);
+  background: var(--color-purple-100);
   font-size: 1rem;
 }
 
 .manual-class-action:hover:not(:disabled) {
-  color: #665276;
-  border-color: #ad9bb7;
-  background: #f7f4f8;
+  color: var(--color-purple-600);
+  border-color: var(--color-purple-300);
+  background: var(--color-purple-50);
 }
 
 .manual-class-action:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.2);
+  outline: 3px solid var(--color-focus-medium);
   outline-offset: 1px;
 }
 
 .schedule-status {
   margin: 0;
   padding: 1rem;
-  border: 1px solid #dfe4dd;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  color: #647068;
-  background: #fff;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
 }
 
 .schedule-status.error {
   margin-bottom: 1rem;
-  color: #872f2f;
-  border-color: #e0b4b4;
-  background: #fff2f2;
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-surface);
 }
 
 .schedule-class-list {
@@ -228,7 +228,7 @@ h1 {
   min-height: 34px;
   padding: 0.35rem 0.25rem 0.35rem 0.5rem;
   border-radius: 8px;
-  color: #647068;
+  color: var(--color-text-muted);
   font-size: 0.8rem;
   cursor: default;
   transition:
@@ -238,7 +238,7 @@ h1 {
 }
 
 .schedule-class-row:hover {
-  background: #f8f6f9;
+  background: var(--color-purple-50);
 }
 
 .schedule-class-row.dragging {
@@ -246,8 +246,8 @@ h1 {
 }
 
 .schedule-class-row.drop-target {
-  background: #f0ebf3;
-  box-shadow: inset 0 2px #8b759a;
+  background: var(--color-purple-100);
+  box-shadow: inset 0 2px var(--color-purple-400);
 }
 
 .drag-handle {
@@ -258,7 +258,7 @@ h1 {
   padding: 0;
   border: 0;
   border-radius: 6px;
-  color: #a19aa5;
+  color: var(--color-icon-muted);
   background: transparent;
   cursor: grab;
   touch-action: none;
@@ -268,8 +268,8 @@ h1 {
 }
 
 .drag-handle:hover:not(:disabled) {
-  color: #665c6d;
-  background: #f0ebf2;
+  color: var(--color-text-secondary);
+  background: var(--color-purple-100);
 }
 
 .drag-handle:active:not(:disabled) {
@@ -292,13 +292,13 @@ h1 {
 }
 
 .drag-handle:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.2);
+  outline: 3px solid var(--color-focus-medium);
   outline-offset: 1px;
 }
 
 .schedule-class-name {
   overflow: hidden;
-  color: #26332c;
+  color: var(--color-text);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -312,7 +312,7 @@ h1 {
   padding: 0;
   border: 0;
   border-radius: 7px;
-  color: #89928d;
+  color: var(--color-icon-muted);
   background: transparent;
   cursor: pointer;
 }
@@ -324,8 +324,8 @@ h1 {
 }
 
 .remove-class-button:hover:not(:disabled) {
-  color: #872f2f;
-  background: #fff0f0;
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
 }
 
 .remove-class-button:focus-visible {
@@ -335,7 +335,7 @@ h1 {
 
 .day-saving-status {
   margin: 0 0 0.5rem;
-  color: #647068;
+  color: var(--color-text-muted);
   font-size: 0.75rem;
   text-align: right;
 }
@@ -350,10 +350,10 @@ h1 {
 
 .settings-panel {
   padding: clamp(1.5rem, 5vw, 2.5rem);
-  border: 1px solid #dfe4dd;
+  border: 1px solid var(--color-border);
   border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 8px 30px rgba(34, 57, 45, 0.05);
+  background: var(--color-surface);
+  box-shadow: 0 8px 30px var(--color-shadow);
 }
 
 .settings-form {
@@ -370,31 +370,31 @@ h1 {
 .settings-form input {
   min-height: 44px;
   padding: 0.7rem 0.8rem;
-  border: 1px solid #cbd5ce;
+  border: 1px solid var(--color-border-strong);
   border-radius: 10px;
-  color: #17231d;
-  background: #fff;
+  color: var(--color-text);
+  background: var(--color-surface);
 }
 
 .settings-form input:focus {
-  border-color: #79658a;
-  outline: 3px solid rgba(102, 82, 118, 0.15);
+  border-color: var(--color-purple-400);
+  outline: 3px solid var(--color-focus-soft);
 }
 
 .settings-form button {
   justify-self: start;
   margin-top: 0.75rem;
   padding: 0.75rem 1rem;
-  border: 1px solid #665276;
+  border: 1px solid var(--color-purple-600);
   border-radius: 10px;
-  color: #fff;
-  background: #665276;
+  color: var(--color-surface);
+  background: var(--color-purple-600);
   font-weight: 650;
   cursor: pointer;
 }
 
 .settings-form button:hover {
-  background: #51415f;
+  background: var(--color-purple-700);
 }
 
 .settings-form button:disabled,
@@ -404,22 +404,22 @@ h1 {
 }
 
 .settings-form button:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.25);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
 .settings-message {
   margin: 0.5rem 0 0;
-  color: #647068;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
 .settings-message.success {
-  color: #295e46;
+  color: var(--color-success);
 }
 
 .settings-message.error {
-  color: #872f2f;
+  color: var(--color-danger);
 }
 
 .class-dialog {
@@ -428,19 +428,19 @@ h1 {
   padding: 0;
   border: 0;
   border-radius: 18px;
-  color: #17231d;
+  color: var(--color-text);
   background: transparent;
-  box-shadow: 0 24px 70px rgba(12, 25, 18, 0.28);
+  box-shadow: 0 24px 70px var(--color-shadow-strong);
 }
 
 .class-dialog::backdrop {
-  background: rgba(20, 31, 25, 0.55);
+  background: var(--color-backdrop);
   backdrop-filter: blur(6px);
 }
 
 .dialog-card {
   padding: clamp(1.25rem, 5vw, 2rem);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .dialog-header {
@@ -458,7 +458,7 @@ h1 {
 
 .dialog-date {
   margin: 0.45rem 0 0;
-  color: #647068;
+  color: var(--color-text-muted);
   font-size: 0.95rem;
 }
 
@@ -471,21 +471,21 @@ h1 {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  color: #435149;
-  background: #f1f4f1;
+  color: var(--color-text-secondary);
+  background: var(--color-purple-50);
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
 }
 
 .dialog-close:hover {
-  background: #e4ebe6;
+  background: var(--color-purple-100);
 }
 
 .dialog-close:focus-visible,
 .classes-table tbody tr:focus-visible,
 .classes-status button:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.25);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -497,13 +497,13 @@ h1 {
   margin: 0;
   padding: 1.25rem;
   border-radius: 12px;
-  color: #647068;
-  background: #f7f9f7;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
   text-align: center;
 }
 
 .classes-status.error {
-  color: #872f2f;
+  color: var(--color-danger);
 }
 
 .classes-status.error p {
@@ -513,17 +513,17 @@ h1 {
 .classes-status button {
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #cbd5ce;
+  border: 1px solid var(--color-border-strong);
   border-radius: 9px;
-  color: #665276;
-  background: #fff;
+  color: var(--color-purple-600);
+  background: var(--color-surface);
   font-weight: 650;
   cursor: pointer;
 }
 
 .classes-table-wrap {
   overflow-x: auto;
-  border: 1px solid #dfe4dd;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
 }
 
@@ -536,12 +536,12 @@ h1 {
 .classes-table th,
 .classes-table td {
   padding: 0.85rem 0.9rem;
-  border-bottom: 1px solid #e5e9e5;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .classes-table th {
-  color: #647068;
-  background: #f7f9f7;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
   font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -554,12 +554,12 @@ h1 {
 }
 
 .classes-table tbody tr:hover {
-  background: #f7f4f8;
+  background: var(--color-purple-50);
 }
 
 .classes-table tbody tr.selected {
-  outline-color: #8b759a;
-  background: #f0ebf3;
+  outline-color: var(--color-purple-400);
+  background: var(--color-purple-100);
 }
 
 .classes-table tbody tr:last-child td {
@@ -574,7 +574,7 @@ h1 {
 .row-selection {
   display: inline-block;
   width: 1.25rem;
-  color: #665276;
+  color: var(--color-purple-600);
   font-weight: 800;
 }
 
@@ -585,22 +585,22 @@ h1 {
   gap: 1rem;
   margin-top: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #e5e9e5;
+  border-top: 1px solid var(--color-border);
 }
 
 .dialog-actions > button {
   margin-left: auto;
   padding: 0.7rem 1rem;
-  border: 1px solid #665276;
+  border: 1px solid var(--color-purple-600);
   border-radius: 10px;
-  color: #fff;
-  background: #665276;
+  color: var(--color-surface);
+  background: var(--color-purple-600);
   font-weight: 650;
   cursor: pointer;
 }
 
 .dialog-actions > button:hover:not(:disabled) {
-  background: #51415f;
+  background: var(--color-purple-700);
 }
 
 .dialog-actions > button:disabled {
@@ -609,13 +609,13 @@ h1 {
 }
 
 .dialog-actions > button:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.25);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
 .dialog-save-error {
   margin: 0;
-  color: #872f2f;
+  color: var(--color-danger);
   font-size: 0.85rem;
 }
 
@@ -638,15 +638,15 @@ h1 {
 .manual-class-fields input {
   min-height: 44px;
   padding: 0.7rem 0.8rem;
-  border: 1px solid #cbd5ce;
+  border: 1px solid var(--color-border-strong);
   border-radius: 10px;
-  color: #17231d;
-  background: #fff;
+  color: var(--color-text);
+  background: var(--color-surface);
 }
 
 .manual-class-fields input:focus {
-  border-color: #79658a;
-  outline: 3px solid rgba(102, 82, 118, 0.15);
+  border-color: var(--color-purple-400);
+  outline: 3px solid var(--color-focus-soft);
 }
 
 .manual-class-fields input[aria-invalid="true"] {
@@ -657,10 +657,10 @@ h1 {
   min-height: 40px;
   margin-top: -0.45rem;
   padding: 0.55rem 0.8rem;
-  border: 1px solid #d9e2dc;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  color: #665276;
-  background: #f8f6f9;
+  color: var(--color-purple-600);
+  background: var(--color-purple-50);
   font: inherit;
   font-weight: 650;
   text-align: left;
@@ -668,18 +668,18 @@ h1 {
 }
 
 .manual-class-suggestion:hover:not(:disabled) {
-  border-color: #aebfb4;
-  background: #f0ebf3;
+  border-color: var(--color-purple-300);
+  background: var(--color-purple-100);
 }
 
 .manual-class-suggestion:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.2);
+  outline: 3px solid var(--color-focus-medium);
   outline-offset: 1px;
 }
 
 .field-error {
   margin: -0.25rem 0 0;
-  color: #872f2f;
+  color: var(--color-danger);
   font-size: 0.8rem;
 }
 
@@ -689,31 +689,31 @@ h1 {
   gap: 0.65rem;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid #e5e9e5;
+  border-top: 1px solid var(--color-border);
 }
 
 .manual-class-actions button {
   padding: 0.65rem 0.9rem;
-  border: 1px solid #cbd5ce;
+  border: 1px solid var(--color-border-strong);
   border-radius: 10px;
-  color: #435149;
-  background: #fff;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
   font-weight: 650;
   cursor: pointer;
 }
 
 .manual-class-actions button[type="submit"] {
-  color: #fff;
-  border-color: #665276;
-  background: #665276;
+  color: var(--color-surface);
+  border-color: var(--color-purple-600);
+  background: var(--color-purple-600);
 }
 
 .manual-class-actions button:hover:not(:disabled) {
-  background: #f3f0f5;
+  background: var(--color-purple-50);
 }
 
 .manual-class-actions button[type="submit"]:hover:not(:disabled) {
-  background: #51415f;
+  background: var(--color-purple-700);
 }
 
 .manual-class-actions button:disabled,
@@ -724,7 +724,7 @@ h1 {
 }
 
 .manual-class-actions button:focus-visible {
-  outline: 3px solid rgba(102, 82, 118, 0.25);
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 

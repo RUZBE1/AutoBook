@@ -59,6 +59,8 @@ const MANUAL_CLASS_SUGGESTION = 'Zumba®'
 type AppView = 'schedule' | 'settings'
 type SettingsMessage = { text: string; tone: 'success' | 'error' }
 type SelectedDay = { day: string; date: string; fullDate: string }
+type BackupTarget = { day: string; primaryClass: ScheduleClass }
+type ScheduleBackups = Record<string, Record<string, ScheduleClass>>
 
 function getClassIdentity(classItem: LeisureClass) {
   return JSON.stringify([classItem.name, classItem.time, classItem.session])
@@ -108,6 +110,9 @@ interface ScheduleClassListProps {
   disabled: boolean
   onReorder: (day: string, classes: ScheduleClass[]) => void
   onRemove: (day: string, classItem: ScheduleClass) => void
+  backups: Record<string, ScheduleClass>
+  onAddBackup: (day: string, classItem: ScheduleClass) => void
+  onRemoveBackup: (day: string, classItem: ScheduleClass) => void
 }
 
 interface SortableScheduleClassRowProps {
@@ -116,6 +121,11 @@ interface SortableScheduleClassRowProps {
   isDropTarget: boolean
   onKeyboardReorder: (direction: -1 | 1) => void
   onRemove: () => void
+  backup?: ScheduleClass
+  onAddBackup: () => void
+  onRemoveBackup: () => void
+  isBackupActionRevealed: boolean
+  onRevealBackupAction: () => void
 }
 
 function SortableScheduleClassRow({
@@ -124,6 +134,11 @@ function SortableScheduleClassRow({
   isDropTarget,
   onKeyboardReorder,
   onRemove,
+  backup,
+  onAddBackup,
+  onRemoveBackup,
+  isBackupActionRevealed,
+  onRevealBackupAction,
 }: SortableScheduleClassRowProps) {
   const classKey = getScheduleClassIdentity(classItem)
   const ordinalSession = formatOrdinal(classItem.session)
@@ -140,12 +155,17 @@ function SortableScheduleClassRow({
   return (
     <li
       ref={setNodeRef}
-      className={`schedule-class-row${isDragging ? ' dragging' : ''}${isDropTarget ? ' drop-target' : ''}`}
+      className={`schedule-class-block${isDragging ? ' dragging' : ''}${isDropTarget ? ' drop-target' : ''}${isBackupActionRevealed ? ' backup-action-revealed' : ''}`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
       }}
+      onClick={(event) => {
+        event.stopPropagation()
+        onRevealBackupAction()
+      }}
     >
+      <div className="schedule-class-row">
       <button
         ref={setActivatorNodeRef}
         className="drag-handle"
@@ -188,6 +208,38 @@ function SortableScheduleClassRow({
           <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
         </svg>
       </button>
+      </div>
+      <div className={`backup-class-row${backup ? '' : ' empty'}`}>
+        <span className="backup-connector" aria-hidden="true">↳</span>
+        {backup ? (
+          <>
+            <span className="backup-class-name">Backup: {backup.className}</span>
+            <span>{formatOrdinal(backup.session)}</span>
+            <button
+              className="remove-class-button"
+              type="button"
+              disabled={disabled}
+              aria-label={`Remove backup ${backup.className} ${formatOrdinal(backup.session)} session`}
+              onMouseDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              onClick={onRemoveBackup}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
+              </svg>
+            </button>
+          </>
+        ) : (
+          <button
+            className="add-backup-button"
+            type="button"
+            disabled={disabled}
+            onClick={onAddBackup}
+          >
+            Add backup class
+          </button>
+        )}
+      </div>
     </li>
   )
 }
@@ -198,8 +250,22 @@ function ScheduleClassList({
   disabled,
   onReorder,
   onRemove,
+  backups,
+  onAddBackup,
+  onRemoveBackup,
 }: ScheduleClassListProps) {
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
+  const [revealedBackupKey, setRevealedBackupKey] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (revealedBackupKey === null) {
+      return
+    }
+
+    const hideBackupAction = () => setRevealedBackupKey(null)
+    document.addEventListener('click', hideBackupAction)
+    return () => document.removeEventListener('click', hideBackupAction)
+  }, [revealedBackupKey])
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
@@ -258,6 +324,11 @@ function ScheduleClassList({
                 isDropTarget={dropTargetKey === classKey}
                 onKeyboardReorder={(direction) => reorder(index, index + direction)}
                 onRemove={() => onRemove(day, classItem)}
+                backup={backups[classKey]}
+                onAddBackup={() => onAddBackup(day, classItem)}
+                onRemoveBackup={() => onRemoveBackup(day, classItem)}
+                isBackupActionRevealed={revealedBackupKey === classKey}
+                onRevealBackupAction={() => setRevealedBackupKey(classKey)}
               />
             )
           })}
@@ -303,6 +374,7 @@ interface AddClassModalProps {
     selectedClasses: LeisureClass[],
     catalogueClasses: LeisureClass[],
   ) => Promise<void>
+  onManualEntry: () => void
   onClose: () => void
 }
 
@@ -310,6 +382,7 @@ function AddClassModal({
   selectedDay,
   savedClasses,
   onSaveClasses,
+  onManualEntry,
   onClose,
 }: AddClassModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -522,12 +595,20 @@ function AddClassModal({
           )}
         </div>
 
-        <div className="dialog-actions">
+        <div className="dialog-actions backup-dialog-actions">
           {saveError && (
             <p className="dialog-save-error" role="alert">
               {saveError}
             </p>
           )}
+          <button
+            className="backup-manual-button"
+            type="button"
+            disabled={isSaving}
+            onClick={onManualEntry}
+          >
+            Enter class name
+          </button>
           <button
             type="button"
             disabled={isLoading || classesError !== null || isSaving}
@@ -541,11 +622,145 @@ function AddClassModal({
   )
 }
 
+interface AddBackupModalProps {
+  target: BackupTarget
+  savedClasses: ScheduleClass[]
+  onSave: (backup: ScheduleClass) => void
+  onManualEntry: () => void
+  onClose: () => void
+}
+
+function AddBackupModal({
+  target,
+  savedClasses,
+  onSave,
+  onManualEntry,
+  onClose,
+}: AddBackupModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [classes, setClasses] = useState<LeisureClass[]>([])
+  const [selectedClass, setSelectedClass] = useState<LeisureClass | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const savedClassKeys = new Set(savedClasses.map(getScheduleClassIdentity))
+  const availableClasses = classes.filter(
+    (classItem) =>
+      !savedClassKeys.has(
+        getScheduleClassIdentity({
+          className: classItem.name,
+          session: classItem.session,
+        }),
+      ),
+  )
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    const controller = new AbortController()
+    dialog?.showModal()
+
+    void getClasses(getNextWeekday(target.day).date, controller.signal)
+      .then(setClasses)
+      .catch((loadError: unknown) => {
+        if (!(loadError instanceof DOMException && loadError.name === 'AbortError')) {
+          setError(
+            loadError instanceof ClassesApiError
+              ? loadError.message
+              : 'Unable to get classes.',
+          )
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false)
+      })
+
+    return () => {
+      controller.abort()
+      if (dialog?.open) dialog.close()
+    }
+  }, [target.day])
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="class-dialog"
+      aria-labelledby="backup-dialog-title"
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="dialog-card">
+        <div className="dialog-header">
+          <div>
+            <p className="eyebrow">Backup for {target.primaryClass.className}</p>
+            <h2 id="backup-dialog-title">Choose a backup class</h2>
+          </div>
+          <button className="dialog-close" type="button" aria-label="Close backup dialog" onClick={onClose}>×</button>
+        </div>
+        <div className="classes-content" aria-live="polite">
+          {isLoading && <p className="classes-status">Getting classes...</p>}
+          {!isLoading && error && <p className="classes-status error" role="alert">{error}</p>}
+          {!isLoading && !error && availableClasses.length === 0 && <p className="classes-status">No classes available.</p>}
+          {!isLoading && !error && availableClasses.length > 0 && (
+            <div className="classes-table-wrap">
+              <table className="classes-table">
+                <thead><tr><th scope="col">Class</th><th scope="col">Time</th><th scope="col">Session</th></tr></thead>
+                <tbody>
+                  {availableClasses.map((classItem) => {
+                    const identity = getClassIdentity(classItem)
+                    const isSelected = selectedClass !== null && getClassIdentity(selectedClass) === identity
+                    return (
+                      <tr
+                        key={identity}
+                        className={isSelected ? 'selected' : undefined}
+                        aria-selected={isSelected}
+                        tabIndex={0}
+                        onClick={() => setSelectedClass(classItem)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            setSelectedClass(classItem)
+                          }
+                        }}
+                      >
+                        <td><span className="row-selection" aria-hidden="true">{isSelected ? '✓' : ''}</span>{classItem.name}</td>
+                        <td>{classItem.time}</td>
+                        <td>{formatOrdinal(classItem.session)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div className="dialog-actions backup-dialog-actions">
+          <button className="backup-manual-button" type="button" onClick={onManualEntry}>Enter class name</button>
+          <button
+            type="button"
+            disabled={!selectedClass}
+            onClick={() => {
+              if (selectedClass) onSave({ className: selectedClass.name, session: selectedClass.session })
+            }}
+          >
+            Add backup
+          </button>
+        </div>
+      </div>
+    </dialog>
+  )
+}
+
 interface ManualClassModalProps {
   day: string
   savedClasses: ScheduleClass[]
   onAddClass: (classItem: ScheduleClass) => Promise<void>
   onClose: () => void
+  title?: string
+  submitLabel?: string
 }
 
 function ManualClassModal({
@@ -553,6 +768,8 @@ function ManualClassModal({
   savedClasses,
   onAddClass,
   onClose,
+  title = 'Enter class name',
+  submitLabel = 'Add class',
 }: ManualClassModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [className, setClassName] = useState('')
@@ -645,7 +862,7 @@ function ManualClassModal({
         <div className="dialog-header">
           <div>
             <p className="eyebrow">{day}</p>
-            <h2 id="manual-class-dialog-title">Enter class name</h2>
+            <h2 id="manual-class-dialog-title">{title}</h2>
           </div>
           <button
             className="dialog-close"
@@ -732,7 +949,7 @@ function ManualClassModal({
             Cancel
           </button>
           <button type="submit" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Add class'}
+            {isSaving ? 'Saving...' : submitLabel}
           </button>
         </div>
       </form>
@@ -756,6 +973,9 @@ function App() {
   const [isSavingCredentials, setIsSavingCredentials] = useState(false)
   const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null)
   const [manualEntryDay, setManualEntryDay] = useState<string | null>(null)
+  const [backupTarget, setBackupTarget] = useState<BackupTarget | null>(null)
+  const [manualBackupTarget, setManualBackupTarget] = useState<BackupTarget | null>(null)
+  const [scheduleBackups, setScheduleBackups] = useState<ScheduleBackups>({})
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(
     createEmptySchedule,
   )
@@ -945,6 +1165,11 @@ function App() {
         ...current,
         [savedDay.day]: savedDay.classes,
       }))
+      setScheduleBackups((current) => {
+        const dayBackups = { ...(current[day] ?? {}) }
+        delete dayBackups[classKey]
+        return { ...current, [day]: dayBackups }
+      })
     } catch (error) {
       setScheduleError(
         error instanceof ScheduleApiError
@@ -1047,6 +1272,28 @@ function App() {
     }
   }
 
+  const handleAddBackup = (target: BackupTarget, backup: ScheduleClass) => {
+    const primaryKey = getScheduleClassIdentity(target.primaryClass)
+    setScheduleBackups((current) => ({
+      ...current,
+      [target.day]: {
+        ...(current[target.day] ?? {}),
+        [primaryKey]: backup,
+      },
+    }))
+    setBackupTarget(null)
+    setManualBackupTarget(null)
+  }
+
+  const handleRemoveBackup = (day: string, primaryClass: ScheduleClass) => {
+    const primaryKey = getScheduleClassIdentity(primaryClass)
+    setScheduleBackups((current) => {
+      const dayBackups = { ...(current[day] ?? {}) }
+      delete dayBackups[primaryKey]
+      return { ...current, [day]: dayBackups }
+    })
+  }
+
   if (!isSignedIn) {
     return (
       <main className="loading-page">
@@ -1103,6 +1350,11 @@ function App() {
                         disabled={savingDays.has(day)}
                         onReorder={handleReorderClasses}
                         onRemove={handleRemoveClass}
+                        backups={scheduleBackups[day] ?? {}}
+                        onAddBackup={(backupDay, primaryClass) =>
+                          setBackupTarget({ day: backupDay, primaryClass })
+                        }
+                        onRemoveBackup={handleRemoveBackup}
                       />
                     )}
                     {savingDays.has(day) && (
@@ -1201,6 +1453,10 @@ function App() {
               catalogueClasses,
             )
           }
+          onManualEntry={() => {
+            setManualEntryDay(selectedDay.day)
+            setSelectedDay(null)
+          }}
           onClose={() => setSelectedDay(null)}
         />
       )}
@@ -1213,6 +1469,33 @@ function App() {
             handleAddManualClass(manualEntryDay, classItem)
           }
           onClose={() => setManualEntryDay(null)}
+        />
+      )}
+
+      {backupTarget && (
+        <AddBackupModal
+          target={backupTarget}
+          savedClasses={weeklySchedule[backupTarget.day]}
+          onSave={(backup) => handleAddBackup(backupTarget, backup)}
+          onManualEntry={() => {
+            setManualBackupTarget(backupTarget)
+            setBackupTarget(null)
+          }}
+          onClose={() => setBackupTarget(null)}
+        />
+      )}
+
+      {manualBackupTarget && (
+        <ManualClassModal
+          day={manualBackupTarget.day}
+          savedClasses={weeklySchedule[manualBackupTarget.day]}
+          title={`Enter backup for ${manualBackupTarget.primaryClass.className}`}
+          submitLabel="Add backup"
+          onAddClass={(backup) => {
+            handleAddBackup(manualBackupTarget, backup)
+            return Promise.resolve()
+          }}
+          onClose={() => setManualBackupTarget(null)}
         />
       )}
     </div>

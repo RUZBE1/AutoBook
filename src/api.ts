@@ -53,6 +53,10 @@ export interface LeisureClass {
 export interface ScheduleClass {
   className: string
   session: number
+  backup?: {
+    className: string
+    session: number
+  }
 }
 
 export type WeeklySchedule = Record<string, ScheduleClass[]>
@@ -95,7 +99,35 @@ function normalizeScheduleClass(value: unknown): ScheduleClass | null {
     return null
   }
 
-  return { className, session }
+  let backup: ScheduleClass['backup']
+
+  if (Object.prototype.hasOwnProperty.call(value, 'backup')) {
+    if (!isRecord(value.backup)) {
+      return null
+    }
+
+    const backupClassName = value.backup.className
+    const backupSession = value.backup.session
+
+    if (
+      typeof backupClassName !== 'string' ||
+      typeof backupSession !== 'number' ||
+      !Number.isFinite(backupSession)
+    ) {
+      return null
+    }
+
+    backup = {
+      className: backupClassName,
+      session: backupSession,
+    }
+  }
+
+  return {
+    className,
+    session,
+    ...(backup ? { backup } : {}),
+  }
 }
 
 function parseScheduleClasses(value: unknown) {

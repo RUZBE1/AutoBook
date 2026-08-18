@@ -74,6 +74,65 @@ function createEmptySchedule(): WeeklySchedule {
   return Object.fromEntries(days.map((day) => [day, []]))
 }
 
+function separateBackups(classes: ScheduleClass[]) {
+  const backups: Record<string, ScheduleClass> = {}
+  const primaryClasses = classes.map((classItem) => {
+    const primaryClass = {
+      className: classItem.className,
+      session: classItem.session,
+    }
+
+    if (classItem.backup) {
+      backups[getScheduleClassIdentity(primaryClass)] = {
+        className: classItem.backup.className,
+        session: classItem.backup.session,
+      }
+    }
+
+    return primaryClass
+  })
+
+  return { primaryClasses, backups }
+}
+
+function includeBackups(
+  classes: ScheduleClass[],
+  backups: Record<string, ScheduleClass>,
+) {
+  return classes.map((classItem) => {
+    const primaryClass = {
+      className: classItem.className,
+      session: classItem.session,
+    }
+    const backup = backups[getScheduleClassIdentity(primaryClass)]
+
+    return {
+      ...primaryClass,
+      ...(backup
+        ? {
+            backup: {
+              className: backup.className,
+              session: backup.session,
+            },
+          }
+        : {}),
+    }
+  })
+}
+
+function separateWeeklySchedule(schedule: WeeklySchedule) {
+  const weeklySchedule = createEmptySchedule()
+  const scheduleBackups: ScheduleBackups = {}
+
+  for (const day of days) {
+    const separated = separateBackups(schedule[day])
+    weeklySchedule[day] = separated.primaryClasses
+    scheduleBackups[day] = separated.backups
+  }
+
+  return { weeklySchedule, scheduleBackups }
+}
+
 function formatOrdinal(value: number) {
   const remainder100 = Math.abs(value) % 100
 
@@ -1036,7 +1095,16 @@ function App() {
     setScheduleError(null)
 
     void getSchedule()
-      .then(setWeeklySchedule)
+      .then((schedule) => {
+        const separated =
+          separateWeeklySchedule(schedule)
+        setWeeklySchedule(
+          separated.weeklySchedule,
+        )
+        setScheduleBackups(
+          separated.scheduleBackups,
+        )
+      })
       .catch((error: unknown) => {
         setScheduleError(
           error instanceof ScheduleApiError
@@ -1048,6 +1116,23 @@ function App() {
         setIsScheduleLoading(false)
       })
   }, [isSignedIn])
+
+  const applySavedScheduleDay = (
+    day: string,
+    classes: ScheduleClass[],
+  ) => {
+    const separated =
+      separateBackups(classes)
+
+    setWeeklySchedule((current) => ({
+      ...current,
+      [day]: separated.primaryClasses,
+    }))
+    setScheduleBackups((current) => ({
+      ...current,
+      [day]: separated.backups,
+    }))
+  }
 
   const handleSaveCredentials = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -1132,11 +1217,17 @@ function App() {
     setSavingDays((current) => new Set(current).add(day))
 
     try {
-      const savedDay = await saveScheduleDay(day, candidateClasses)
-      setWeeklySchedule((current) => ({
-        ...current,
-        [savedDay.day]: savedDay.classes,
-      }))
+      const savedDay = await saveScheduleDay(
+        day,
+        includeBackups(
+          candidateClasses,
+          scheduleBackups[day] ?? {},
+        ),
+      )
+      applySavedScheduleDay(
+        savedDay.day,
+        savedDay.classes,
+      )
     } finally {
       setSavingDays((current) => {
         const next = new Set(current)
@@ -1160,16 +1251,17 @@ function App() {
     setScheduleError(null)
 
     try {
-      const savedDay = await saveScheduleDay(day, candidateClasses)
-      setWeeklySchedule((current) => ({
-        ...current,
-        [savedDay.day]: savedDay.classes,
-      }))
-      setScheduleBackups((current) => {
-        const dayBackups = { ...(current[day] ?? {}) }
-        delete dayBackups[classKey]
-        return { ...current, [day]: dayBackups }
-      })
+      const savedDay = await saveScheduleDay(
+        day,
+        includeBackups(
+          candidateClasses,
+          scheduleBackups[day] ?? {},
+        ),
+      )
+      applySavedScheduleDay(
+        savedDay.day,
+        savedDay.classes,
+      )
     } catch (error) {
       setScheduleError(
         error instanceof ScheduleApiError
@@ -1202,11 +1294,17 @@ function App() {
     setScheduleError(null)
 
     try {
-      const savedDay = await saveScheduleDay(day, reorderedClasses)
-      setWeeklySchedule((current) => ({
-        ...current,
-        [savedDay.day]: savedDay.classes,
-      }))
+      const savedDay = await saveScheduleDay(
+        day,
+        includeBackups(
+          reorderedClasses,
+          scheduleBackups[day] ?? {},
+        ),
+      )
+      applySavedScheduleDay(
+        savedDay.day,
+        savedDay.classes,
+      )
     } catch (error) {
       setWeeklySchedule((current) => ({
         ...current,
@@ -1251,11 +1349,17 @@ function App() {
     setScheduleError(null)
 
     try {
-      const savedDay = await saveScheduleDay(day, candidateClasses)
-      setWeeklySchedule((current) => ({
-        ...current,
-        [savedDay.day]: savedDay.classes,
-      }))
+      const savedDay = await saveScheduleDay(
+        day,
+        includeBackups(
+          candidateClasses,
+          scheduleBackups[day] ?? {},
+        ),
+      )
+      applySavedScheduleDay(
+        savedDay.day,
+        savedDay.classes,
+      )
     } catch (error) {
       setScheduleError(
         error instanceof ScheduleApiError
@@ -1272,26 +1376,114 @@ function App() {
     }
   }
 
-  const handleAddBackup = (target: BackupTarget, backup: ScheduleClass) => {
+  const handleAddBackup = async (
+    target: BackupTarget,
+    backup: ScheduleClass,
+  ) => {
+    if (savingDays.has(target.day)) {
+      return
+    }
+
     const primaryKey = getScheduleClassIdentity(target.primaryClass)
+    const previousDayBackups =
+      scheduleBackups[target.day] ?? {}
+    const nextDayBackups = {
+      ...previousDayBackups,
+      [primaryKey]: backup,
+    }
+
     setScheduleBackups((current) => ({
       ...current,
-      [target.day]: {
-        ...(current[target.day] ?? {}),
-        [primaryKey]: backup,
-      },
+      [target.day]: nextDayBackups,
     }))
     setBackupTarget(null)
     setManualBackupTarget(null)
+    setSavingDays((current) => new Set(current).add(target.day))
+    setScheduleError(null)
+
+    try {
+      const savedDay = await saveScheduleDay(
+        target.day,
+        includeBackups(
+          weeklySchedule[target.day],
+          nextDayBackups,
+        ),
+      )
+      applySavedScheduleDay(
+        savedDay.day,
+        savedDay.classes,
+      )
+    } catch (error) {
+      setScheduleBackups((current) => ({
+        ...current,
+        [target.day]: previousDayBackups,
+      }))
+      setScheduleError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+    } finally {
+      setSavingDays((current) => {
+        const next = new Set(current)
+        next.delete(target.day)
+        return next
+      })
+    }
   }
 
-  const handleRemoveBackup = (day: string, primaryClass: ScheduleClass) => {
+  const handleRemoveBackup = async (
+    day: string,
+    primaryClass: ScheduleClass,
+  ) => {
+    if (savingDays.has(day)) {
+      return
+    }
+
     const primaryKey = getScheduleClassIdentity(primaryClass)
-    setScheduleBackups((current) => {
-      const dayBackups = { ...(current[day] ?? {}) }
-      delete dayBackups[primaryKey]
-      return { ...current, [day]: dayBackups }
-    })
+    const previousDayBackups =
+      scheduleBackups[day] ?? {}
+    const nextDayBackups = {
+      ...previousDayBackups,
+    }
+    delete nextDayBackups[primaryKey]
+
+    setScheduleBackups((current) => ({
+      ...current,
+      [day]: nextDayBackups,
+    }))
+    setSavingDays((current) => new Set(current).add(day))
+    setScheduleError(null)
+
+    try {
+      const savedDay = await saveScheduleDay(
+        day,
+        includeBackups(
+          weeklySchedule[day],
+          nextDayBackups,
+        ),
+      )
+      applySavedScheduleDay(
+        savedDay.day,
+        savedDay.classes,
+      )
+    } catch (error) {
+      setScheduleBackups((current) => ({
+        ...current,
+        [day]: previousDayBackups,
+      }))
+      setScheduleError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+    } finally {
+      setSavingDays((current) => {
+        const next = new Set(current)
+        next.delete(day)
+        return next
+      })
+    }
   }
 
   if (!isSignedIn) {
@@ -1491,10 +1683,12 @@ function App() {
           savedClasses={weeklySchedule[manualBackupTarget.day]}
           title={`Enter backup for ${manualBackupTarget.primaryClass.className}`}
           submitLabel="Add backup"
-          onAddClass={(backup) => {
-            handleAddBackup(manualBackupTarget, backup)
-            return Promise.resolve()
-          }}
+          onAddClass={(backup) =>
+            handleAddBackup(
+              manualBackupTarget,
+              backup,
+            )
+          }
           onClose={() => setManualBackupTarget(null)}
         />
       )}

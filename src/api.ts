@@ -1,11 +1,16 @@
 import { getStoredAccessToken, recoverFromExpiredSession } from './auth'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '')
+
+if (!API_BASE_URL) {
+  throw new Error('VITE_API_BASE_URL is not configured.')
+}
+
 const LEISURE_CENTRE_SETTINGS_URL =
-  'https://iojgrjmve9.execute-api.eu-west-2.amazonaws.com/settings/leisure-centre'
-const CLASSES_URL =
-  'https://iojgrjmve9.execute-api.eu-west-2.amazonaws.com/classes'
-const SCHEDULE_URL =
-  'https://iojgrjmve9.execute-api.eu-west-2.amazonaws.com/schedule'
+  `${API_BASE_URL}/settings/leisure-centre`
+const CLASSES_URL = `${API_BASE_URL}/classes`
+const SCHEDULE_URL = `${API_BASE_URL}/schedule`
+const BOOKING_LOGS_URL = `${API_BASE_URL}/booking-logs`
 
 const scheduleDays = [
   'Monday',
@@ -20,6 +25,7 @@ const scheduleDays = [
 export class SettingsApiError extends Error {}
 export class ClassesApiError extends Error {}
 export class ScheduleApiError extends Error {}
+export class BookingLogApiError extends Error {}
 
 class AuthenticationExpiredError extends Error {}
 
@@ -60,6 +66,24 @@ export interface ScheduleClass {
 }
 
 export type WeeklySchedule = Record<string, ScheduleClass[]>
+
+export interface BookingLogEntry {
+  bookingDate: string
+  day: string
+  priority: number
+  className: string
+  session: number
+  classTime: string
+  status: string
+  failureReason?: string
+  backup?: {
+    className: string
+    session: number
+    classTime?: string
+    status: string
+    failureReason?: string
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -139,6 +163,78 @@ function parseScheduleClasses(value: unknown) {
   return classes.every((classItem) => classItem !== null)
     ? (classes as ScheduleClass[])
     : null
+}
+
+function normalizeBookingLogEntry(value: unknown): BookingLogEntry | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const {
+    bookingDate,
+    day,
+    priority,
+    className,
+    session,
+    classTime,
+    status,
+    failureReason,
+  } = value
+
+  if (
+    typeof bookingDate !== 'string' ||
+    typeof day !== 'string' ||
+    typeof priority !== 'number' ||
+    !Number.isInteger(priority) ||
+    typeof className !== 'string' ||
+    typeof session !== 'number' ||
+    !Number.isFinite(session) ||
+    typeof classTime !== 'string' ||
+    typeof status !== 'string'
+  ) {
+    return null
+  }
+
+  let backup: BookingLogEntry['backup']
+
+  if (isRecord(value.backup)) {
+    const backupClassName = value.backup.className
+    const backupSession = value.backup.session
+    const backupClassTime = value.backup.classTime
+    const backupStatus = value.backup.status
+    const backupFailureReason = value.backup.failureReason
+
+    if (
+      typeof backupClassName === 'string' &&
+      typeof backupSession === 'number' &&
+      Number.isFinite(backupSession) &&
+      typeof backupStatus === 'string'
+    ) {
+      backup = {
+        className: backupClassName,
+        session: backupSession,
+        ...(typeof backupClassTime === 'string'
+          ? { classTime: backupClassTime }
+          : {}),
+        status: backupStatus,
+        ...(typeof backupFailureReason === 'string'
+          ? { failureReason: backupFailureReason }
+          : {}),
+      }
+    }
+  }
+
+  return {
+    bookingDate,
+    day,
+    priority,
+    className,
+    session,
+    classTime,
+    status,
+    ...(typeof failureReason === 'string' ? { failureReason } : {}),
+    ...(backup ? { backup } : {}),
+  }
 }
 
 async function getValidationMessage(response: Response) {
@@ -329,4 +425,42 @@ export async function saveScheduleDay(day: string, classes: ScheduleClass[]) {
   }
 
   return { day: body.day, classes: savedClasses }
+}
+
+export async function getBookingLogs() {
+  let response: Response
+
+  try {
+    response = await authenticatedFetch(BOOKING_LOGS_URL, {
+      method: 'GET',
+    })
+  } catch (error) {
+    if (error instanceof AuthenticationExpiredError) {
+      throw new BookingLogApiError(
+        'Your session has expired. Please sign in again.',
+      )
+    }
+
+    throw new BookingLogApiError('Unable to load booking log.')
+  }
+
+  if (!response.ok) {
+    throw new BookingLogApiError('Unable to load booking log.')
+  }
+
+  let body: unknown
+
+  try {
+    body = await response.json()
+  } catch {
+    throw new BookingLogApiError('Unable to load booking log.')
+  }
+
+  if (!isRecord(body) || !Array.isArray(body.entries)) {
+    throw new BookingLogApiError('Unable to load booking log.')
+  }
+
+  return body.entries
+    .map(normalizeBookingLogEntry)
+    .filter((entry): entry is BookingLogEntry => entry !== null)
 }

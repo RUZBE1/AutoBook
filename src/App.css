@@ -433,6 +433,141 @@ h1 {
   max-width: 720px;
 }
 
+.booking-log-view {
+  max-width: 900px;
+}
+
+.booking-log-empty {
+  padding: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 8px 30px var(--color-shadow);
+  text-align: center;
+}
+
+.booking-log-empty h2,
+.booking-log-empty p {
+  margin: 0;
+}
+
+.booking-log-empty p {
+  margin-top: 0.6rem;
+  color: var(--color-text-muted);
+}
+
+.booking-log-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.booking-log-card {
+  padding: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: 0 8px 30px var(--color-shadow);
+}
+
+.booking-result-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.booking-log-title {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: clamp(1rem, 3vw, 1.2rem);
+  line-height: 1.35;
+}
+
+.booking-log-title-successful {
+  color: var(--color-success);
+  background: #e4f3ea;
+}
+
+.booking-log-title-partial {
+  color: #6c5414;
+  background: #fff3c4;
+}
+
+.booking-log-title-failed {
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+}
+
+.booking-result-list {
+  display: grid;
+  gap: 0;
+  margin: 1.25rem 0 0;
+  padding: 0 0 0 1.25rem;
+  list-style: disc;
+}
+
+.booking-result-list > li {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.booking-result-list > li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.booking-backup-result {
+  margin-top: 0.45rem;
+  padding-left: 1.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.booking-failure-reason {
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--color-danger);
+  font-size: 0.82rem;
+}
+
+.booking-backup-result .booking-failure-reason {
+  padding-left: 1rem;
+}
+
+.booking-status {
+  flex: 0 0 auto;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-purple-100);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.booking-status-successful,
+.booking-status-success,
+.booking-status-primary-added,
+.booking-status-backup-added {
+  color: var(--color-success);
+  background: #edf7f1;
+}
+
+.booking-status-failed,
+.booking-status-failure,
+.booking-status-primary-failed-no-backup,
+.booking-status-primary-not-found-no-backup,
+.booking-status-backup-failed,
+.booking-status-backup-not-found {
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+}
+
+@media (max-width: 600px) {
+  .booking-result-row {
+    align-items: flex-start;
+  }
+}
+
 .back-button {
   margin: 0 0 1.5rem -0.75rem;
 }

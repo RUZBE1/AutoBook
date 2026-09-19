@@ -25,6 +25,8 @@ import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 import {
   ClassesApiError,
+  BookingLogApiError,
+  getBookingLogs,
   getClasses,
   getSchedule,
   saveLeisureCentreCredentials,
@@ -32,6 +34,7 @@ import {
   ScheduleApiError,
   SettingsApiError,
   type LeisureClass,
+  type BookingLogEntry,
   type ScheduleClass,
   type WeeklySchedule,
 } from './api'
@@ -56,7 +59,7 @@ const days = [
 
 const MANUAL_CLASS_SUGGESTION = 'Zumba®'
 
-type AppView = 'schedule' | 'settings'
+type AppView = 'schedule' | 'booking-log' | 'settings'
 type SettingsMessage = { text: string; tone: 'success' | 'error' }
 type SelectedDay = { day: string; date: string; fullDate: string }
 type BackupTarget = { day: string; primaryClass: ScheduleClass }
@@ -72,6 +75,205 @@ function getScheduleClassIdentity(classItem: ScheduleClass) {
 
 function createEmptySchedule(): WeeklySchedule {
   return Object.fromEntries(days.map((day) => [day, []]))
+}
+
+function formatBookingStatus(status: string) {
+  const words = status.replaceAll('-', ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+function bookingSucceeded(status: string) {
+  return [
+    'success',
+    'successful',
+    'primary-added',
+    'backup-added',
+  ].includes(status)
+}
+
+function formatBookingDate(bookingDate: string, day: string) {
+  const date = new Date(`${bookingDate}T00:00:00Z`)
+
+  if (Number.isNaN(date.getTime())) {
+    return `${day}, ${bookingDate}`
+  }
+
+  return `${day}, ${new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)}`
+}
+
+function groupBookingLogEntries(entries: BookingLogEntry[]) {
+  const grouped = new Map<
+    string,
+    { bookingDate: string; day: string; classes: BookingLogEntry[] }
+  >()
+
+  for (const entry of entries) {
+    const existing = grouped.get(entry.bookingDate)
+
+    if (existing) {
+      existing.classes.push(entry)
+    } else {
+      grouped.set(entry.bookingDate, {
+        bookingDate: entry.bookingDate,
+        day: entry.day,
+        classes: [entry],
+      })
+    }
+  }
+
+  return [...grouped.values()]
+    .map((log) => ({
+      ...log,
+      classes: [...log.classes].sort(
+        (first, second) => first.priority - second.priority,
+      ),
+    }))
+    .sort((first, second) =>
+      second.bookingDate.localeCompare(first.bookingDate),
+    )
+}
+
+function getBookingLogResult(classes: BookingLogEntry[]) {
+  const successful = classes.filter(
+    (classItem) =>
+      bookingSucceeded(classItem.status) ||
+      (classItem.backup !== undefined &&
+        bookingSucceeded(classItem.backup.status)),
+  ).length
+
+  const total = classes.length
+  const tone = successful === 0 ? 'failed' : successful === total ? 'successful' : 'partial'
+
+  return { successful, total, tone }
+}
+
+function BookingLogView({ onBack }: { onBack: () => void }) {
+  const [entries, setEntries] = useState<BookingLogEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isCurrent = true
+
+    void getBookingLogs()
+      .then((bookingEntries) => {
+        if (isCurrent) setEntries(bookingEntries)
+      })
+      .catch((loadError: unknown) => {
+        if (isCurrent) {
+          setError(
+            loadError instanceof BookingLogApiError
+              ? loadError.message
+              : 'Unable to load booking log.',
+          )
+        }
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoading(false)
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [])
+
+  const logs = groupBookingLogEntries(entries)
+
+  return (
+    <main className="main-content booking-log-view">
+      <button className="back-button" type="button" onClick={onBack}>
+        ← Back to your week
+      </button>
+
+      <div className="title-block">
+        <p className="eyebrow">History</p>
+        <h1>Booking Log</h1>
+        <p className="subtitle">
+          Results from automatic booking runs will appear here.
+        </p>
+      </div>
+
+      {isLoading && (
+        <p className="schedule-status" role="status">
+          Loading booking log...
+        </p>
+      )}
+
+      {!isLoading && error && (
+        <p className="schedule-status error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {!isLoading && !error && logs.length === 0 && (
+        <div className="booking-log-empty">
+          <h2>No booking runs recorded yet</h2>
+          <p>
+            The database is ready. Results will appear after booking logging is
+            connected to the automatic booking function.
+          </p>
+        </div>
+      )}
+
+      {!isLoading && !error && logs.length > 0 && (
+        <section className="booking-log-list" aria-label="Automatic booking history">
+          {logs.map((log) => (
+            (() => {
+              const result = getBookingLogResult(log.classes)
+
+              return (
+                <article className="booking-log-card" key={log.bookingDate}>
+                  <h2 className={`booking-log-title booking-log-title-${result.tone}`}>
+                    {formatBookingDate(log.bookingDate, log.day)}{' '}
+                    {result.successful}/{result.total}
+                  </h2>
+
+                  <ul className="booking-result-list">
+                    {log.classes.map((classItem) => (
+                      <li key={`${classItem.className}-${classItem.session}`}>
+                        <div className="booking-result-row">
+                          <span>
+                            {classItem.className} — {formatOrdinal(classItem.session)} session,
+                            {' '}{classItem.classTime} -{' '}
+                            <strong>{formatBookingStatus(classItem.status)}</strong>
+                          </span>
+                        </div>
+                        {classItem.failureReason && (
+                          <p className="booking-failure-reason">
+                            Reason: {classItem.failureReason}
+                          </p>
+                        )}
+                        {classItem.backup && (
+                          <div className="booking-backup-result">
+                            <div className="booking-result-row">
+                              <span>
+                                Backup: {classItem.backup.className} -{' '}
+                                <strong>{formatBookingStatus(classItem.backup.status)}</strong>
+                              </span>
+                            </div>
+                            {classItem.backup.failureReason && (
+                              <p className="booking-failure-reason">
+                                Reason: {classItem.backup.failureReason}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              )
+            })()
+          ))}
+        </section>
+      )}
+    </main>
+  )
 }
 
 function separateBackups(classes: ScheduleClass[]) {
@@ -1502,6 +1704,9 @@ function App() {
         <div className="header-content">
           <span className="brand-name">AutoBook</span>
           <nav className="header-nav" aria-label="Account navigation">
+            <button type="button" onClick={() => setView('booking-log')}>
+              Booking log
+            </button>
             <button type="button" onClick={() => setView('settings')}>
               Settings
             </button>
@@ -1577,6 +1782,8 @@ function App() {
             </>
           )}
         </main>
+      ) : view === 'booking-log' ? (
+        <BookingLogView onBack={() => setView('schedule')} />
       ) : (
         <main className="main-content settings-view">
           <button

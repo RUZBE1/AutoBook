@@ -31,10 +31,12 @@ import {
   getSchedule,
   saveLeisureCentreCredentials,
   saveScheduleDay,
+  saveScheduleDayPaused,
   ScheduleApiError,
   SettingsApiError,
   type LeisureClass,
   type BookingLogEntry,
+  type BookingRunEntry,
   type ScheduleClass,
   type WeeklySchedule,
 } from './api'
@@ -106,17 +108,35 @@ function formatBookingDate(bookingDate: string, day: string) {
   }).format(date)}`
 }
 
-function groupBookingLogEntries(entries: BookingLogEntry[]) {
+function groupBookingLogEntries(
+  entries: BookingLogEntry[],
+  runs: BookingRunEntry[],
+) {
   const grouped = new Map<
     string,
-    { bookingDate: string; day: string; classes: BookingLogEntry[] }
+    {
+      bookingDate: string
+      day: string
+      classes: BookingLogEntry[]
+      status?: BookingRunEntry['status']
+    }
   >()
+
+  for (const run of runs) {
+    grouped.set(run.bookingDate, {
+      bookingDate: run.bookingDate,
+      day: run.day,
+      classes: [],
+      status: run.status,
+    })
+  }
 
   for (const entry of entries) {
     const existing = grouped.get(entry.bookingDate)
 
     if (existing) {
       existing.classes.push(entry)
+      delete existing.status
     } else {
       grouped.set(entry.bookingDate, {
         bookingDate: entry.bookingDate,
@@ -154,6 +174,7 @@ function getBookingLogResult(classes: BookingLogEntry[]) {
 
 function BookingLogView({ onBack }: { onBack: () => void }) {
   const [entries, setEntries] = useState<BookingLogEntry[]>([])
+  const [runs, setRuns] = useState<BookingRunEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -161,8 +182,11 @@ function BookingLogView({ onBack }: { onBack: () => void }) {
     let isCurrent = true
 
     void getBookingLogs()
-      .then((bookingEntries) => {
-        if (isCurrent) setEntries(bookingEntries)
+      .then((bookingLog) => {
+        if (isCurrent) {
+          setEntries(bookingLog.entries)
+          setRuns(bookingLog.runs)
+        }
       })
       .catch((loadError: unknown) => {
         if (isCurrent) {
@@ -182,7 +206,7 @@ function BookingLogView({ onBack }: { onBack: () => void }) {
     }
   }, [])
 
-  const logs = groupBookingLogEntries(entries)
+  const logs = groupBookingLogEntries(entries, runs)
 
   return (
     <main className="main-content booking-log-view">
@@ -224,6 +248,19 @@ function BookingLogView({ onBack }: { onBack: () => void }) {
         <section className="booking-log-list" aria-label="Automatic booking history">
           {logs.map((log) => (
             (() => {
+              if (log.status === 'paused') {
+                return (
+                  <article className="booking-log-card" key={log.bookingDate}>
+                    <h2 className="booking-log-title booking-log-title-paused">
+                      {formatBookingDate(log.bookingDate, log.day)} — Paused
+                    </h2>
+                    <p className="booking-run-message">
+                      No bookings were attempted because this day was paused.
+                    </p>
+                  </article>
+                )
+              }
+
               const result = getBookingLogResult(log.classes)
 
               return (
@@ -1240,6 +1277,10 @@ function App() {
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(
     createEmptySchedule,
   )
+  const [pausedDays, setPausedDays] = useState<Set<string>>(() => new Set())
+  const [savingPauseDays, setSavingPauseDays] = useState<Set<string>>(
+    () => new Set(),
+  )
   const [isScheduleLoading, setIsScheduleLoading] = useState(true)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
   const [savingDays, setSavingDays] = useState<Set<string>>(() => new Set())
@@ -1297,7 +1338,7 @@ function App() {
     setScheduleError(null)
 
     void getSchedule()
-      .then((schedule) => {
+      .then(({ schedule, pausedDays: loadedPausedDays }) => {
         const separated =
           separateWeeklySchedule(schedule)
         setWeeklySchedule(
@@ -1306,6 +1347,7 @@ function App() {
         setScheduleBackups(
           separated.scheduleBackups,
         )
+        setPausedDays(new Set(loadedPausedDays))
       })
       .catch((error: unknown) => {
         setScheduleError(
@@ -1334,6 +1376,44 @@ function App() {
       ...current,
       [day]: separated.backups,
     }))
+  }
+
+  const handleToggleDayPaused = async (day: string) => {
+    if (savingPauseDays.has(day)) {
+      return
+    }
+
+    const nextPaused = !pausedDays.has(day)
+    setSavingPauseDays((current) => new Set(current).add(day))
+    setScheduleError(null)
+
+    try {
+      const savedDay = await saveScheduleDayPaused(day, nextPaused)
+
+      setPausedDays((current) => {
+        const next = new Set(current)
+
+        if (savedDay.paused) {
+          next.add(savedDay.day)
+        } else {
+          next.delete(savedDay.day)
+        }
+
+        return next
+      })
+    } catch (error) {
+      setScheduleError(
+        error instanceof ScheduleApiError
+          ? error.message
+          : 'Unable to save schedule.',
+      )
+    } finally {
+      setSavingPauseDays((current) => {
+        const next = new Set(current)
+        next.delete(day)
+        return next
+      })
+    }
   }
 
   const handleSaveCredentials = async (event: FormEvent<HTMLFormElement>) => {
@@ -1735,49 +1815,74 @@ function App() {
                 </p>
               )}
               <section className="week-grid" aria-label="Weekly class schedule">
-                {days.map((day) => (
-                  <article className="day-card" key={day}>
-                    <h2>{day}</h2>
-                    {weeklySchedule[day].length === 0 ? (
-                      <p>No classes selected</p>
-                    ) : (
-                      <ScheduleClassList
-                        day={day}
-                        classes={weeklySchedule[day]}
+                {days.map((day) => {
+                  const isPaused = pausedDays.has(day)
+                  const isSavingPause = savingPauseDays.has(day)
+
+                  return (
+                    <article className="day-card" key={day}>
+                      <div className="day-card-header">
+                        <h2>{day}</h2>
+                        <button
+                          className={`day-pause-button${isPaused ? ' paused' : ''}`}
+                          type="button"
+                          aria-label={
+                            isPaused
+                              ? `Resume ${day} bookings`
+                              : `Pause ${day} bookings`
+                          }
+                          aria-pressed={isPaused}
+                          disabled={isSavingPause}
+                          onClick={() => handleToggleDayPaused(day)}
+                        >
+                          {isSavingPause
+                            ? 'Saving...'
+                            : isPaused
+                              ? 'Paused'
+                              : 'Live'}
+                        </button>
+                      </div>
+                      {weeklySchedule[day].length === 0 ? (
+                        <p>No classes selected</p>
+                      ) : (
+                        <ScheduleClassList
+                          day={day}
+                          classes={weeklySchedule[day]}
+                          disabled={savingDays.has(day)}
+                          onReorder={handleReorderClasses}
+                          onRemove={handleRemoveClass}
+                          backups={scheduleBackups[day] ?? {}}
+                          onAddBackup={(backupDay, primaryClass) =>
+                            setBackupTarget({ day: backupDay, primaryClass })
+                          }
+                          onRemoveBackup={handleRemoveBackup}
+                        />
+                      )}
+                      {savingDays.has(day) && (
+                        <span className="day-saving-status" role="status">
+                          Saving...
+                        </span>
+                      )}
+                      <button
+                        className="manual-class-action"
+                        type="button"
                         disabled={savingDays.has(day)}
-                        onReorder={handleReorderClasses}
-                        onRemove={handleRemoveClass}
-                        backups={scheduleBackups[day] ?? {}}
-                        onAddBackup={(backupDay, primaryClass) =>
-                          setBackupTarget({ day: backupDay, primaryClass })
-                        }
-                        onRemoveBackup={handleRemoveBackup}
-                      />
-                    )}
-                    {savingDays.has(day) && (
-                      <span className="day-saving-status" role="status">
-                        Saving...
-                      </span>
-                    )}
-                    <button
-                      className="manual-class-action"
-                      type="button"
-                      disabled={savingDays.has(day)}
-                      onClick={() => setManualEntryDay(day)}
-                    >
-                      <span aria-hidden="true">+</span>
-                      Enter class name
-                    </button>
-                    <button
-                      className="add-class-button"
-                      type="button"
-                      disabled={savingDays.has(day)}
-                      onClick={() => setSelectedDay(getNextWeekday(day))}
-                    >
-                      Add class
-                    </button>
-                  </article>
-                ))}
+                        onClick={() => setManualEntryDay(day)}
+                      >
+                        <span aria-hidden="true">+</span>
+                        Enter class name
+                      </button>
+                      <button
+                        className="add-class-button"
+                        type="button"
+                        disabled={savingDays.has(day)}
+                        onClick={() => setSelectedDay(getNextWeekday(day))}
+                      >
+                        Add class
+                      </button>
+                    </article>
+                  )
+                })}
               </section>
             </>
           )}

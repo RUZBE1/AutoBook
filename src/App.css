@@ -111,10 +111,59 @@ h1 {
   box-shadow: 0 8px 30px var(--color-shadow);
 }
 
+.day-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .day-card h2 {
   margin: 0;
   font-size: 1.1rem;
   letter-spacing: -0.01em;
+}
+
+.day-pause-button {
+  display: inline-flex;
+  min-width: 2rem;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--color-purple-400);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.day-pause-button:hover:not(:disabled) {
+  border-color: var(--color-purple-200);
+  color: var(--color-purple-600);
+  background: var(--color-purple-50);
+}
+
+.day-pause-button.paused {
+  border-color: var(--color-purple-200);
+  color: var(--color-purple-700);
+  background: var(--color-purple-100);
+}
+
+.day-pause-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.day-pause-button:focus-visible {
+  outline: 3px solid var(--color-focus-medium);
+  outline-offset: 2px;
 }
 
 .day-card p {
@@ -496,6 +545,16 @@ h1 {
 .booking-log-title-failed {
   color: var(--color-danger);
   background: var(--color-danger-surface);
+}
+
+.booking-log-title-paused {
+  color: var(--color-purple-700);
+  background: var(--color-purple-100);
+}
+
+.booking-run-message {
+  margin: 1rem 0 0;
+  color: var(--color-text-muted);
 }
 
 .booking-result-list {

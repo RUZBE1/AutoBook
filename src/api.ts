@@ -10,6 +10,7 @@ const LEISURE_CENTRE_SETTINGS_URL =
   `${API_BASE_URL}/settings/leisure-centre`
 const CLASSES_URL = `${API_BASE_URL}/classes`
 const SCHEDULE_URL = `${API_BASE_URL}/schedule`
+const SCHEDULE_PAUSE_URL = `${SCHEDULE_URL}/pause`
 const BOOKING_LOGS_URL = `${API_BASE_URL}/booking-logs`
 
 const scheduleDays = [
@@ -83,6 +84,12 @@ export interface BookingLogEntry {
     status: string
     failureReason?: string
   }
+}
+
+export interface BookingRunEntry {
+  bookingDate: string
+  day: string
+  status: 'paused'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -237,6 +244,24 @@ function normalizeBookingLogEntry(value: unknown): BookingLogEntry | null {
   }
 }
 
+function normalizeBookingRunEntry(value: unknown): BookingRunEntry | null {
+  if (!isRecord(value)) {
+    return null
+  }
+
+  const { bookingDate, day, status } = value
+
+  if (
+    typeof bookingDate !== 'string' ||
+    typeof day !== 'string' ||
+    status !== 'paused'
+  ) {
+    return null
+  }
+
+  return { bookingDate, day, status }
+}
+
 async function getValidationMessage(response: Response) {
   try {
     const body = (await response.json()) as unknown
@@ -380,7 +405,22 @@ export async function getSchedule() {
     schedule[day] = classes
   }
 
-  return schedule
+  const pausedDaysValue = body.pausedDays
+
+  if (
+    pausedDaysValue !== undefined &&
+    (!Array.isArray(pausedDaysValue) ||
+      pausedDaysValue.some(
+        (day) => typeof day !== 'string' || !scheduleDays.includes(day),
+      ))
+  ) {
+    throw new ScheduleApiError('Unable to load schedule.')
+  }
+
+  return {
+    schedule,
+    pausedDays: pausedDaysValue ?? [],
+  }
 }
 
 export async function saveScheduleDay(day: string, classes: ScheduleClass[]) {
@@ -427,6 +467,48 @@ export async function saveScheduleDay(day: string, classes: ScheduleClass[]) {
   return { day: body.day, classes: savedClasses }
 }
 
+export async function saveScheduleDayPaused(day: string, paused: boolean) {
+  let response: Response
+
+  try {
+    response = await authenticatedFetch(SCHEDULE_PAUSE_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ day, paused }),
+    })
+  } catch (error) {
+    if (error instanceof AuthenticationExpiredError) {
+      throw new ScheduleApiError('Your session has expired. Please sign in again.')
+    }
+
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  if (!response.ok) {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  let body: unknown
+
+  try {
+    body = await response.json()
+  } catch {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  if (
+    !isRecord(body) ||
+    typeof body.day !== 'string' ||
+    typeof body.paused !== 'boolean'
+  ) {
+    throw new ScheduleApiError('Unable to save schedule.')
+  }
+
+  return { day: body.day, paused: body.paused }
+}
+
 export async function getBookingLogs() {
   let response: Response
 
@@ -456,11 +538,20 @@ export async function getBookingLogs() {
     throw new BookingLogApiError('Unable to load booking log.')
   }
 
-  if (!isRecord(body) || !Array.isArray(body.entries)) {
+  if (
+    !isRecord(body) ||
+    !Array.isArray(body.entries) ||
+    (body.runs !== undefined && !Array.isArray(body.runs))
+  ) {
     throw new BookingLogApiError('Unable to load booking log.')
   }
 
-  return body.entries
-    .map(normalizeBookingLogEntry)
-    .filter((entry): entry is BookingLogEntry => entry !== null)
+  return {
+    entries: body.entries
+      .map(normalizeBookingLogEntry)
+      .filter((entry): entry is BookingLogEntry => entry !== null),
+    runs: (body.runs ?? [])
+      .map(normalizeBookingRunEntry)
+      .filter((run): run is BookingRunEntry => run !== null),
+  }
 }
